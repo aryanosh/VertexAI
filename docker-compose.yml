@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sentinelai
+      DB_USER: sentinelai
+      DB_PASSWORD: sentinelai
+    depends_on:
+      - postgres
+
+  agents_service:
+    build:
+      context: ./agents_service
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      MODEL_PROVIDER: vertexai
+
+  scanner-sandbox:
+    build:
+      context: ./scanner-sandbox
+    ports:
+      - "9000:9000"
+    privileged: true
+    environment:
+      SCAN_TIMEOUT_SECONDS: 300
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sentinelai
+      POSTGRES_USER: sentinelai
+      POSTGRES_PASSWORD: sentinelai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
