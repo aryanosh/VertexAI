@@ -11,11 +11,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        background: "var(--background, #f4f5f7)",
+        foreground: "var(--foreground, #1e232b)",
+        brand: {
+          DEFAULT: "var(--brand, #e8613c)",
+          foreground: "var(--brand-foreground, #ffffff)",
+          soft: "var(--brand-soft, #fbe6dd)",
+        },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "var(--card, #ffffff)",
+          foreground: "var(--card-foreground, #1e232b)",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

@@ -7,24 +7,52 @@
  * In production (or when NEXT_PUBLIC_API_URL points at the real backend),
  * the worker is never started and no mock code runs.
  *
- * Usage: wrap children in the root layout.tsx with this provider.
- * At Integration Step 3, simply remove this provider from layout.tsx
- * and point NEXT_PUBLIC_API_URL at http://localhost:8080.
+ * Uses a singleton initialization promise to prevent double-start errors
+ * on page refresh / React 18 Strict Mode.
  */
 
 import { useEffect, useState } from 'react';
+
+declare global {
+  interface Window {
+    __mswInitialized?: boolean;
+    __mswPromise?: Promise<void>;
+  }
+}
 
 async function initMSW(): Promise<void> {
   if (typeof window === 'undefined') return;
   if (process.env.NODE_ENV !== 'development') return;
 
-  const { worker } = await import('@/mocks/browser');
-  await worker.start({
-    onUnhandledRequest: 'bypass',
-    serviceWorker: {
-      url: '/mockServiceWorker.js',
-    },
-  });
+  if (window.__mswInitialized) return;
+  if (window.__mswPromise) {
+    await window.__mswPromise;
+    return;
+  }
+
+  window.__mswPromise = (async () => {
+    try {
+      const { worker } = await import('@/mocks/browser');
+      await worker.start({
+        onUnhandledRequest: 'bypass',
+        serviceWorker: {
+          url: '/mockServiceWorker.js',
+        },
+      });
+      window.__mswInitialized = true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Ignore if network is already enabled / already started during Fast Refresh
+      if (message.includes('already enabled') || message.includes('already registered')) {
+        window.__mswInitialized = true;
+        return;
+      }
+      console.warn('[MSW] Worker initialization warning:', err);
+      window.__mswInitialized = true;
+    }
+  })();
+
+  await window.__mswPromise;
 }
 
 interface MSWProviderProps {
@@ -32,11 +60,16 @@ interface MSWProviderProps {
 }
 
 export default function MSWProvider({ children }: MSWProviderProps) {
-  const [mswReady, setMswReady] = useState(false);
+  const [mswReady, setMswReady] = useState(
+    process.env.NODE_ENV !== 'development' ||
+      (typeof window !== 'undefined' && Boolean(window.__mswInitialized))
+  );
 
   useEffect(() => {
-    initMSW().then(() => setMswReady(true));
-  }, []);
+    if (!mswReady) {
+      initMSW().finally(() => setMswReady(true));
+    }
+  }, [mswReady]);
 
   // In production, render immediately without waiting for MSW
   if (process.env.NODE_ENV !== 'development') {
@@ -50,3 +83,4 @@ export default function MSWProvider({ children }: MSWProviderProps) {
 
   return <>{children}</>;
 }
+

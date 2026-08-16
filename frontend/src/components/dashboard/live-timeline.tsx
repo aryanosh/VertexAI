@@ -28,17 +28,17 @@ const TONE: Record<Tone, { dot: string; tagBg: string; tagText: string }> = {
 function TimelineItem({ e }: { e: Event }) {
   const t = TONE[e.tone]
   return (
-    <div className="relative pb-7 pl-6">
-      <span className="absolute left-0 top-1 h-2.5 w-2.5 -translate-x-1/2 rounded-full ring-4 ring-white">
+    <div className="relative pb-4 2xl:pb-5 pl-5 2xl:pl-6">
+      <span className="absolute left-0 top-1 h-2 2xl:h-2.5 w-2 2xl:w-2.5 -translate-x-1/2 rounded-full ring-4 ring-white">
         <span className={`block h-full w-full rounded-full ${t.dot}`} />
       </span>
       <span
-        className={`inline-block rounded-md px-2 py-0.5 font-mono text-[11px] font-medium ${t.tagBg} ${t.tagText}`}
+        className={`inline-block rounded-md px-1.5 2xl:px-2 py-0.5 font-mono text-[10px] 2xl:text-[11px] font-medium ${t.tagBg} ${t.tagText}`}
       >
         {e.tag}
       </span>
-      <p className="mt-2 text-sm leading-snug text-slate-700">{e.title}</p>
-      <p className="mt-1 font-mono text-xs text-slate-400">{e.time}</p>
+      <p className="mt-1 text-xs 2xl:text-sm leading-snug text-slate-700">{e.title}</p>
+      <p className="mt-0.5 font-mono text-[10px] 2xl:text-xs text-slate-400">{e.time}</p>
     </div>
   )
 }
@@ -46,9 +46,9 @@ function TimelineItem({ e }: { e: Event }) {
 export function LiveTimeline() {
   const loop = [...EVENTS, ...EVENTS]
   return (
-    <section className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="font-mono text-lg font-semibold text-slate-800">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3.5 2xl:p-4 shadow-sm">
+      <div className="flex items-center justify-between shrink-0">
+        <h2 className="font-mono text-base 2xl:text-lg font-semibold text-slate-800">
           Live Timeline
         </h2>
         <button className="flex items-center gap-1 font-mono text-xs font-medium text-brand">
@@ -57,7 +57,7 @@ export function LiveTimeline() {
         </button>
       </div>
 
-      <div className="timeline-mask relative mt-5 flex-1 overflow-hidden">
+      <div className="timeline-mask relative mt-2 2xl:mt-3 flex-1 min-h-0 overflow-hidden">
         <div className="timeline-scroll relative">
           {/* vertical rail */}
           <span className="absolute bottom-0 left-0 top-1 w-px bg-slate-200" />

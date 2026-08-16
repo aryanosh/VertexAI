@@ -26,7 +26,7 @@ type Node = {
 
 const NODES: Node[] = [
   { id: "internet", icon: Globe, label: "Internet", sub: "5.4M events", x: 70, y: 210, tone: "neutral" },
-  { id: "firewall", icon: ShieldCheck, label: "Firewall", sub: "2 Monitors", x: 240, y: 210, tone: "alert" },
+  { id: "firewall", icon: ShieldCheck, label: "Firewall", sub: "2 Monitors", x: 240, y: 210, tone: "neutral" },
   { id: "identity", icon: User, label: "Identity", sub: "1.9M events", x: 410, y: 210, tone: "neutral" },
   { id: "cloud", icon: Cloud, label: "Cloud\nServices", sub: "Healthy", x: 650, y: 110, tone: "healthy", size: 76 },
   { id: "apps", icon: LayoutGrid, label: "Applications", sub: "Healthy", x: 650, y: 310, tone: "healthy", size: 76 },
@@ -49,50 +49,68 @@ function pct(v: number, total: number) {
 
 function NodeCircle({ node }: { node: Node }) {
   const Icon = node.icon
-  const size = node.size ?? 68
-  const toneRing =
+  const size = node.size ? Math.min(node.size, 60) : 50
+
+  const toneBorder =
     node.tone === "alert"
-      ? "border-brand ring-4 ring-brand/15"
-      : "border-slate-200"
+      ? "border-brand/40 group-hover:border-brand"
+      : node.tone === "healthy" || node.tone === "protected"
+        ? "border-emerald-300 group-hover:border-emerald-500"
+        : "border-slate-200 group-hover:border-slate-400"
+
   const toneBg =
     node.tone === "healthy" || node.tone === "protected"
-      ? "bg-emerald-50/70"
+      ? "bg-emerald-50"
       : "bg-white"
+
+  const hoverRing =
+    node.tone === "alert"
+      ? "group-hover:ring-4 group-hover:ring-brand/25 group-hover:shadow-[0_0_22px_rgba(232,97,60,0.45)]"
+      : node.tone === "healthy" || node.tone === "protected"
+        ? "group-hover:ring-4 group-hover:ring-emerald-500/25 group-hover:shadow-[0_0_22px_rgba(16,185,129,0.45)]"
+        : "group-hover:ring-4 group-hover:ring-slate-400/25 group-hover:shadow-[0_0_20px_rgba(100,116,139,0.35)]"
+
+  const hoverGlow =
+    node.tone === "alert"
+      ? "bg-brand/35"
+      : node.tone === "healthy" || node.tone === "protected"
+        ? "bg-emerald-400/35"
+        : "bg-slate-400/25"
 
   return (
     <div
-      className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+      className="group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center pointer-events-auto"
       style={{ left: pct(node.x, VW), top: pct(node.y, VH) }}
     >
-      {node.tone === "protected" && (
-        <span className="absolute -z-10 h-24 w-24 rounded-full bg-emerald-400/25 blur-xl" />
-      )}
+      {/* Soft ambient glow appearing smoothly only on hover */}
+      <span
+        className={`absolute -z-10 h-20 w-20 rounded-full blur-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${hoverGlow}`}
+      />
+
       <div
-        className={`flex items-center justify-center rounded-full border ${toneRing} ${toneBg} shadow-sm ${
-          node.tone === "alert" ? "node-pulse" : ""
-        }`}
+        className={`flex items-center justify-center rounded-full border ${toneBorder} ${toneBg} shadow-sm transition-all duration-300 group-hover:scale-105 ${hoverRing}`}
         style={{ width: size, height: size }}
       >
         <Icon
-          className={
+          className={`transition-colors duration-200 ${
             node.tone === "alert"
               ? "text-brand"
               : node.tone === "healthy" || node.tone === "protected"
                 ? "text-emerald-600"
-                : "text-slate-500"
-          }
-          style={{ width: size * 0.4, height: size * 0.4 }}
+                : "text-slate-500 group-hover:text-slate-800"
+          }`}
+          style={{ width: size * 0.42, height: size * 0.42 }}
           strokeWidth={1.75}
         />
       </div>
-      <div className="mt-2 whitespace-pre text-center">
-        <p className="text-[13px] font-medium leading-tight text-slate-700">
+      <div className="mt-1 whitespace-pre text-center transition-transform duration-200 group-hover:translate-y-0.5">
+        <p className="text-[11px] 2xl:text-[12px] font-medium leading-tight text-slate-700">
           {node.label}
         </p>
         {node.sub && (
           <p
             className={
-              "font-mono text-[11px] " +
+              "font-mono text-[9px] 2xl:text-[10px] " +
               (node.tone === "healthy" || node.tone === "protected"
                 ? "text-emerald-500"
                 : "text-slate-400")
@@ -106,40 +124,9 @@ function NodeCircle({ node }: { node: Node }) {
   )
 }
 
-function Tooltip({
-  x,
-  y,
-  title,
-  value,
-  tone,
-}: {
-  x: number
-  y: number
-  title: string
-  value: string
-  tone: "orange" | "green"
-}) {
-  return (
-    <div
-      className="float-in absolute z-20 -translate-x-1/2 -translate-y-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center shadow-md"
-      style={{ left: pct(x, VW), top: pct(y, VH) }}
-    >
-      <p
-        className={
-          "font-mono text-[12px] font-medium " +
-          (tone === "orange" ? "text-brand" : "text-emerald-600")
-        }
-      >
-        {title}
-      </p>
-      <p className="font-mono text-[11px] text-slate-400">{value}</p>
-    </div>
-  )
-}
-
 export function ThreatFlow() {
   return (
-    <div className="relative h-[460px] w-full">
+    <div className="relative flex-1 min-h-[160px] w-full my-auto flex items-center justify-center">
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="none"
@@ -173,21 +160,6 @@ export function ThreatFlow() {
       {NODES.map((n) => (
         <NodeCircle key={n.id} node={n} />
       ))}
-
-      <Tooltip
-        x={240}
-        y={150}
-        title="Credential Stuffing"
-        value="91% Confidence"
-        tone="orange"
-      />
-      <Tooltip
-        x={760}
-        y={72}
-        title="AI Containment"
-        value="94% Effective"
-        tone="green"
-      />
     </div>
   )
 }
