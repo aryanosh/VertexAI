@@ -1,60 +1,105 @@
-version: '3.9'
+version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: development
-    depends_on:
-      - backend
-
-  backend:
-    build:
-      context: ./backend
-    ports:
-      - "8081:8081"
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: sentinelai
-      DB_USER: sentinelai
-      DB_PASSWORD: sentinelai
-    depends_on:
-      - postgres
-
-  agents_service:
-    build:
-      context: ./agents_service
-    ports:
-      - "8000:8000"
-    environment:
-      APP_ENV: development
-      MODEL_PROVIDER: vertexai
-
-  scanner-sandbox:
-    build:
-      context: ./scanner-sandbox
-    ports:
-      - "9000:9000"
-    privileged: true
-    environment:
-      SCAN_TIMEOUT_SECONDS: 300
-
+  # ============================================================================
+  # 1. Authoritative PostgreSQL 16 Database
+  # ============================================================================
   postgres:
     image: postgres:16-alpine
+    container_name: sentinelai-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sentinelai
-      POSTGRES_USER: sentinelai
-      POSTGRES_PASSWORD: sentinelai
+      POSTGRES_DB: ${POSTGRES_DB:-sentinelai_db}
+      POSTGRES_USER: ${POSTGRES_USER:-sentinel_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_secure_pass}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel_user} -d ${POSTGRES_DB:-sentinelai_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sentinelai-network
+
+  # ============================================================================
+  # 2. Python AI Agents Service (FastAPI - Agents 1, 2, 3, 4)
+  # ============================================================================
+  python-agents:
+    build:
+      context: ./agents_service
+      dockerfile: Dockerfile
+    container_name: sentinelai-agents
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+      BACKEND_URL: http://backend:8080
+      CISA_KEV_URL: ${CISA_KEV_URL:-https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json}
+      FIRST_EPSS_URL: ${FIRST_EPSS_URL:-https://api.first.org/data/v1/epss}
+      NVD_API_URL: ${NVD_API_URL:-https://services.nvd.nist.gov/rest/json/cves/2.0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sentinelai-network
+
+  # ============================================================================
+  # 3. Spring Boot 3 Core Backend & Orchestration API
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sentinelai-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sentinelai_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-sentinel_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_secure_pass}
+      AGENTS_SERVICE_URL: http://python-agents:8000
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_must_be_at_least_256_bits_long_for_hmac_sha256}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REPO: ${GITHUB_REPO:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      python-agents:
+        condition: service_started
+    networks:
+      - sentinelai-network
+
+  # ============================================================================
+  # 4. Next.js 14 Human-in-the-Loop Dashboard UI
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sentinelai-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8080/ws/pipeline}
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - sentinelai-network
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  sentinelai-network:
+    driver: bridge

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sV -sC --script vuln -oX sample_reports/nmap_scan.xml 192.168.1.100 10.0.0.15" start="1708128000" version="7.94">
+  <scaninfo type="syn" protocol="tcp" numservices="1000" services="1-1000"/>
+  <verbose level="0"/>
+  <debugging level="0"/>
+  <host starttime="1708128000" endtime="1708128060">
+    <status state="up" reason="echo-reply" reason_ttl="64"/>
+    <address addr="192.168.1.100" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="api.sentinelai.internal" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="ssh" product="OpenSSH" version="8.2p1 Ubuntu 4ubuntu0.5" method="probed" conf="10">
+          <cpe>cpe:/a:openbsd:openssh:8.2p1</cpe>
+        </service>
+        <script id="ssh2-enum-algos" output="Supported encryption algorithms..."/>
+      </port>
+      <port protocol="tcp" portid="443">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="https" product="nginx" version="1.18.0" tunnel="ssl" method="probed" conf="10">
+          <cpe>cpe:/a:igor_sysoev:nginx:1.18.0</cpe>
+        </service>
+        <script id="ssl-heartbleed" output="VULNERABLE: OpenSSL Heartbleed&#xa;  State: VULNERABLE&#xa;  Risk factor: High&#xa;  Description: OpenSSL versions 1.0.1 through 1.0.1f are vulnerable to a TLS heartbeat read overrun (CVE-2014-0160).&#xa;  References:&#xa;    https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-0160&#xa;">
+          <table key="CVE-2014-0160">
+            <elem key="title">TLS Heartbeat Read Overrun (Heartbleed)</elem>
+            <elem key="state">VULNERABLE</elem>
+            <elem key="cve">CVE-2014-0160</elem>
+            <elem key="cvss">7.5</elem>
+            <elem key="risk_factor">High</elem>
+          </table>
+        </script>
+        <script id="ssl-poodle" output="NOT VULNERABLE: SSL POODLE test passed."/>
+      </port>
+      <port protocol="tcp" portid="8080">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="http" product="Apache Tomcat" version="9.0.41" method="probed" conf="10">
+          <cpe>cpe:/a:apache:tomcat:9.0.41</cpe>
+        </service>
+        <script id="http-vuln-cve2021-44228" output="VULNERABLE: Apache Log4j Remote Code Execution (Log4Shell)&#xa;  State: VULNERABLE&#xa;  Risk factor: Critical&#xa;  Description: Apache Log4j2 JNDI features do not protect against attacker controlled LDAP/RMI lookups.&#xa;  References:&#xa;    https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228&#xa;">
+          <table key="CVE-2021-44228">
+            <elem key="title">Apache Log4j2 JNDI RCE (Log4Shell)</elem>
+            <elem key="state">VULNERABLE</elem>
+            <elem key="cve">CVE-2021-44228</elem>
+            <elem key="cvss">10.0</elem>
+            <elem key="risk_factor">Critical</elem>
+          </table>
+        </script>
+      </port>
+    </ports>
+  </host>
+  <host starttime="1708128060" endtime="1708128120">
+    <status state="up" reason="echo-reply" reason_ttl="64"/>
+    <address addr="10.0.0.15" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="db-internal.sentinelai.internal" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="5432">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="postgresql" product="PostgreSQL DB" version="12.4" method="probed" conf="10">
+          <cpe>cpe:/a:postgresql:postgresql:12.4</cpe>
+        </service>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="http" product="Apache httpd" version="2.4.49" method="probed" conf="10">
+          <cpe>cpe:/a:apache:http_server:2.4.49</cpe>
+        </service>
+        <script id="http-vuln-cve2021-41773" output="VULNERABLE: Apache HTTP Server 2.4.49 Path Traversal and RCE&#xa;  State: VULNERABLE&#xa;  Risk factor: Critical&#xa;  References:&#xa;    https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-41773&#xa;">
+          <table key="CVE-2021-41773">
+            <elem key="title">Apache HTTP Server Path Traversal &amp; RCE</elem>
+            <elem key="state">VULNERABLE</elem>
+            <elem key="cve">CVE-2021-41773</elem>
+            <elem key="cvss">9.8</elem>
+            <elem key="risk_factor">Critical</elem>
+          </table>
+        </script>
+      </port>
+    </ports>
+  </host>
+  <runstats>
+    <finished time="1708128120" timestr="Sat Feb 17 00:02:00 2026" elapsed="120.0" summary="Nmap done at Sat Feb 17 00:02:00 2026; 2 IP addresses (2 hosts up) scanned in 120.0 seconds" exit="success"/>
+    <hosts up="2" down="0" total="2"/>
+  </runstats>
+</nmaprun>
