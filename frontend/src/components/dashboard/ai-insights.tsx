@@ -1,13 +1,56 @@
-import { Zap } from "lucide-react"
+"use client";
 
-const METRICS: { label: string; value: string; text: string }[] = [
+import { useState, useEffect } from "react";
+import { Zap } from "lucide-react";
+
+type Metric = {
+  label: string;
+  value: string;
+  text: string;
+};
+
+const DEFAULT_METRICS: Metric[] = [
   { label: "Threats detected by AI", value: "67%", text: "text-emerald-600" },
   { label: "False positives reduced", value: "63%", text: "text-emerald-600" },
   { label: "Mean time to detect", value: "18m", text: "text-sky-600" },
   { label: "Risk reduced", value: "32%", text: "text-emerald-600" },
-]
+];
 
 export function AIInsights() {
+  const [metrics, setMetrics] = useState<Metric[]>(DEFAULT_METRICS);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await fetch("/api/dashboard");
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        // Safely merge incoming API data with default styling
+        if (data?.aiInsights && Array.isArray(data.aiInsights)) {
+          const updated = DEFAULT_METRICS.map((defaultItem, index) => {
+            const apiItem = data.aiInsights[index];
+            if (apiItem) {
+              return {
+                ...defaultItem,
+                value: apiItem.value ?? defaultItem.value,
+              };
+            }
+            return defaultItem;
+          });
+          setMetrics(updated);
+        }
+      } catch (err) {
+        console.error("Failed to fetch AI Insights", err);
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <section className="flex h-full min-h-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 2xl:p-3.5 shadow-sm">
       <div className="flex items-center justify-between shrink-0">
@@ -18,10 +61,10 @@ export function AIInsights() {
       </div>
 
       <div className="my-1 flex-1 min-h-0 flex flex-col justify-around gap-1">
-        {METRICS.map((m) => (
+        {metrics.map((m) => (
           <div key={m.label} className="flex items-center justify-between">
             <p className="text-xs text-slate-600">{m.label}</p>
-            <span className={`font-mono text-xs font-medium ${m.text}`}>
+            <span className={`font-mono text-xs font-medium transition-all duration-500 ${m.text}`}>
               {m.value}
             </span>
           </div>
@@ -36,5 +79,5 @@ export function AIInsights() {
         </p>
       </div>
     </section>
-  )
+  );
 }

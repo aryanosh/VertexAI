@@ -12,7 +12,7 @@ const LEGEND: { label: string; color: string; dashed?: boolean }[] = [
 export function ThreatOverview() {
   return (
     <section className="flex h-full min-h-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3.5 2xl:p-4 shadow-sm">
-      <div className="flex items-start justify-between shrink-0">
+      <div className="flex items-start justify-between shrink-0 mb-2">
         <div>
           <h2 className="font-mono text-base 2xl:text-lg font-semibold text-slate-800">
             Threat Overview
@@ -41,11 +41,11 @@ export function ThreatOverview() {
 
       <ThreatFlow />
 
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-4 2xl:gap-6 shrink-0">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-6">
         {LEGEND.map((l) => (
-          <div key={l.label} className="flex items-center gap-1.5 2xl:gap-2">
+          <div key={l.label} className="flex items-center gap-2">
             <span
-              className="inline-block h-0.5 w-4 2xl:w-5 rounded-full"
+              className="inline-block h-0.5 w-5 rounded-full"
               style={{
                 backgroundColor: l.color,
                 backgroundImage: l.dashed
@@ -53,7 +53,7 @@ export function ThreatOverview() {
                   : undefined,
               }}
             />
-            <span className="font-mono text-[10px] 2xl:text-xs text-slate-500">{l.label}</span>
+            <span className="font-mono text-xs text-slate-500">{l.label}</span>
           </div>
         ))}
       </div>

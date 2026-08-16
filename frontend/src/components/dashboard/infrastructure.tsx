@@ -1,23 +1,65 @@
-import { Cloud, Monitor, Server, Database, CircleCheck } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
+'use client';
+
+import { useState, useEffect } from "react";
+import { Cloud, Monitor, Server, Database, CircleCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type Item = {
-  icon: LucideIcon
-  name: string
-  count?: string
-  value: number
-  bar: string
-  text: string
-}
+  icon: LucideIcon;
+  name: string;
+  count?: string;
+  value: number;
+  bar: string;
+  text: string;
+};
 
-const ITEMS: Item[] = [
+const DEFAULT_ITEMS: Item[] = [
   { icon: Cloud, name: "Cloud Services", value: 99, bar: "bg-emerald-500", text: "text-emerald-600" },
   { icon: Monitor, name: "Endpoints", count: "4,692", value: 97, bar: "bg-emerald-500", text: "text-emerald-600" },
   { icon: Server, name: "Servers", count: "128", value: 99, bar: "bg-emerald-500", text: "text-emerald-600" },
   { icon: Database, name: "Databases", count: "56", value: 97, bar: "bg-amber-400", text: "text-amber-600" },
-]
+];
 
 export function Infrastructure() {
+  const [items, setItems] = useState<Item[]>(DEFAULT_ITEMS);
+  const [uptime, setUptime] = useState<string>("99.6%");
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await fetch("/api/dashboard");
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        
+        if (data?.infrastructure && Array.isArray(data.infrastructure)) {
+          const updatedItems = DEFAULT_ITEMS.map((defaultItem, index) => {
+            const apiItem = data.infrastructure[index];
+            if (apiItem) {
+              return { 
+                ...defaultItem, 
+                value: apiItem.status ?? defaultItem.value,
+                count: apiItem.count ? apiItem.count.toLocaleString() : defaultItem.count 
+              };
+            }
+            return defaultItem;
+          });
+          setItems(updatedItems);
+          
+          if (data.overallUptime) {
+             setUptime(`${data.overallUptime}%`);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch infrastructure metrics", err);
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <section className="flex h-full min-h-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 2xl:p-3.5 shadow-sm">
       <div className="flex items-center justify-between shrink-0">
@@ -31,8 +73,8 @@ export function Infrastructure() {
       </div>
 
       <div className="my-1 flex-1 min-h-0 flex flex-col justify-around gap-1.5">
-        {ITEMS.map((t) => {
-          const Icon = t.icon
+        {items.map((t) => {
+          const Icon = t.icon;
           return (
             <div key={t.name} className="flex items-center gap-2">
               <span className="flex h-6 w-6 2xl:h-7 2xl:w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
@@ -54,13 +96,13 @@ export function Infrastructure() {
                 </div>
                 <div className="mt-1 h-1 2xl:h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
-                    className={`bar-grow h-full rounded-full ${t.bar}`}
+                    className={`bar-grow h-full rounded-full ${t.bar} transition-all duration-1000 ease-out`}
                     style={{ width: `${t.value}%` }}
                   />
                 </div>
               </div>
             </div>
-          )
+          );
         })}
       </div>
 
@@ -68,10 +110,10 @@ export function Infrastructure() {
         <span className="font-mono text-xs font-medium text-slate-600">
           Overall Uptime
         </span>
-        <span className="font-mono text-xs 2xl:text-sm font-bold text-emerald-600">
-          99.6%
+        <span className="font-mono text-xs 2xl:text-sm font-bold text-emerald-600 transition-all duration-500">
+          {uptime}
         </span>
       </div>
     </section>
-  )
+  );
 }
