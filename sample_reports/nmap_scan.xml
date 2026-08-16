@@ -8,7 +8,7 @@
     <status state="up" reason="echo-reply" reason_ttl="64"/>
     <address addr="192.168.1.100" addrtype="ipv4"/>
     <hostnames>
-      <hostname name="api.sentinelai.internal" type="PTR"/>
+      <hostname name="api.vertexai.internal" type="PTR"/>
     </hostnames>
     <ports>
       <port protocol="tcp" portid="22">
@@ -55,7 +55,7 @@
     <status state="up" reason="echo-reply" reason_ttl="64"/>
     <address addr="10.0.0.15" addrtype="ipv4"/>
     <hostnames>
-      <hostname name="db-internal.sentinelai.internal" type="PTR"/>
+      <hostname name="db-internal.vertexai.internal" type="PTR"/>
     </hostnames>
     <ports>
       <port protocol="tcp" portid="5432">

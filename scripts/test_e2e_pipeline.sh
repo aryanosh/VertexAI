@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# SentinelAI End-to-End (E2E) Pipeline & Human-in-the-Loop Verification Harness
+# VertexAI End-to-End (E2E) Pipeline & Human-in-the-Loop Verification Harness
 # Owned by Team 4 (DevOps, Scanners & E2E)
 # ==============================================================================
 
@@ -10,7 +10,7 @@ BACKEND_URL="${BACKEND_URL:-http://localhost:8080}"
 AGENTS_URL="${AGENTS_URL:-http://localhost:8000}"
 
 echo "========================================================================"
-echo "🛡️  SENTINEL AI: END-TO-END PIPELINE & HITL VERIFICATION HARNESS"
+echo "🛡️  VERTEX AI: END-TO-END PIPELINE & HITL VERIFICATION HARNESS"
 echo "========================================================================"
 echo "Backend URL: ${BACKEND_URL}"
 echo "Agents  URL: ${AGENTS_URL}"
@@ -38,7 +38,6 @@ wait_for_service() {
 # Stage 0: Health Checks
 # ------------------------------------------------------------------------------
 echo "--- STAGE 0: Service Health Checks ---"
-# Note: When testing locally without live containers running, harness supports DRY_RUN or live mode.
 if [ "${E2E_DRY_RUN:-false}" = "true" ]; then
   echo "⚠️  E2E_DRY_RUN=true: Simulating network responses for local syntax/logic validation."
 fi
@@ -48,7 +47,7 @@ fi
 # ------------------------------------------------------------------------------
 echo ""
 echo "--- STAGE 1: Authentication (POST /api/auth/login) ---"
-AUTH_PAYLOAD='{"username":"admin@sentinelai.internal","password":"SentinelAdminSecurePass123!"}'
+AUTH_PAYLOAD='{"username":"admin@vertexai.internal","password":"VertexAdminSecurePass123!"}'
 
 if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
   LOGIN_RESP=$(curl -s -X POST "${BACKEND_URL}/api/auth/login" \
@@ -56,7 +55,7 @@ if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
     -d "${AUTH_PAYLOAD}")
   JWT_TOKEN=$(echo "${LOGIN_RESP}" | grep -o '"token":"[^"]*' | cut -d'"' -f4 || echo "")
 else
-  JWT_TOKEN="mock-jwt-token-sentinelai-verification"
+  JWT_TOKEN="mock-jwt-token-vertexai-verification"
 fi
 
 if [ -z "${JWT_TOKEN}" ] && [ "${E2E_DRY_RUN:-false}" != "true" ]; then
@@ -226,7 +225,7 @@ if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
     -H "Content-Type: application/json" \
     -H "${AUTH_HEADER}" \
     -d '{"approved":true}')
-  TICKET_URL=$(echo "${TICKET_RESP}" | grep -o '"ticket_url":"[^"]*' | cut -d'"' -f4 || echo "https://github.com/sentinelai/issues/1")
+  TICKET_URL=$(echo "${TICKET_RESP}" | grep -o '"ticket_url":"[^"]*' | cut -d'"' -f4 || echo "https://github.com/aryanosh/VertexAI/issues/1")
   TICKET_STATUS=$(echo "${TICKET_RESP}" | grep -o '"status":"[^"]*' | cut -d'"' -f4 || echo "CREATED")
 else
   TICKET_URL="https://github.com/aryanosh/VertexAI/issues/1"

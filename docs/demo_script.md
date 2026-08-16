@@ -1,8 +1,8 @@
-# SentinelAI: Live Demonstration Script
+# VertexAI: Live Demonstration Script
 ## 4-Minute Human-Supervised Multi-Agent Cybersecurity Pipeline Demo
 
 > **Audience**: Hackathon Judges, Security Architects, and Engineering Leadership  
-> **Presenters**: SentinelAI Implementation Team  
+> **Presenters**: VertexAI Implementation Team  
 > **Key Value Proposition**: Transforming 2,500 noisy multi-scanner alerts into 15 prioritized, threat-enriched canonical vulnerabilities with strict Human-in-the-Loop governance.
 
 ---
@@ -24,7 +24,7 @@
 
 #### Part 1: The Problem (0:00 - 0:45)
 - **Speaker**: "In enterprise security operations, security teams run multiple scanners—Nmap, OWASP ZAP, Nuclei, and OpenVAS. Running all four produces thousands of duplicate alerts, false positives, and static CVSS ratings that treat everything as an emergency.
-- Unchecked AI auto-ticketing floods engineering backlogs with noise. SentinelAI solves this by orchestrating **4 specialized AI agents** under **strict Human-in-the-Loop checkpoints** at every stage."
+- Unchecked AI auto-ticketing floods engineering backlogs with noise. VertexAI solves this by orchestrating **4 specialized AI agents** under **strict Human-in-the-Loop checkpoints** at every stage."
 
 ---
 
@@ -68,4 +68,4 @@
   - Team 1's `GitHubTicketingService.java` dispatches the GitHub REST API call.
   - A green badge pops up with the clickable issue link: `https://github.com/aryanosh/VertexAI/issues/1`.
   - The platform **Security Health Score** updates dynamically to **96/100**.
-- **Speaker**: "With one click, Team 1's backend generates the authorized engineering ticket on GitHub containing the full explainable AI rationale and remediation steps. SentinelAI turns scanner chaos into verified, actionable security resolution."
+- **Speaker**: "With one click, Team 1's backend generates the authorized engineering ticket on GitHub containing the full explainable AI rationale and remediation steps. VertexAI turns scanner chaos into verified, actionable security resolution."

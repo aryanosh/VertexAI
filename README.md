@@ -1,12 +1,12 @@
-# SentinelAI: AI-Driven Vulnerability Management & Prioritization Platform
+# VertexAI: AI-Driven Vulnerability Management & Prioritization Platform
 
-> **Master Specification**: Authoritative implementation blueprint for SentinelAI (Cognizant Activity 4). Human-supervised multi-agent cybersecurity platform solving Alert Fatigue and Scanner Noise across enterprise infrastructure.
+> **Master Specification**: Authoritative implementation blueprint for VertexAI (Cognizant Activity 4). Human-supervised multi-agent cybersecurity platform solving Alert Fatigue and Scanner Noise across enterprise infrastructure.
 
 ---
 
 ## 1. Overview
 
-**SentinelAI** bridges raw security vulnerability detection and actionable engineering remediation through **4 Specialized AI Agents** under strict **Human-in-the-Loop (HITL) Supervision**:
+**VertexAI** bridges raw security vulnerability detection and actionable engineering remediation through **4 Specialized AI Agents** under strict **Human-in-the-Loop (HITL) Supervision**:
 
 1. **Agent 1 (AI Scanning Agent — Parser & Normalizer)**: Multi-scanner output ingestion (Nmap, OWASP ZAP, Nuclei, OpenVAS) and schema normalization. *(HITL Checkpoint: Review 1)*
 2. **Agent 2 (AI Noise Reduction Agent)**: Cryptographic cross-scanner deduplication (MD5), XGBoost false-positive filtering, and accepted-risk policy enforcement. *(HITL Checkpoint: Review 2)*
@@ -19,21 +19,21 @@ After explicit Final Human Approval, Team 1's `GitHubTicketingService.java` crea
 
 ## 2. Platform Architecture & Service Ports
 
-SentinelAI runs as an integrated multi-service containerized architecture orchestrated via Docker Compose:
+VertexAI runs as an integrated multi-service containerized architecture orchestrated via Docker Compose:
 
 | Service | Technology Stack | Container Name | Port Mapping | Responsibility |
 | :--- | :--- | :--- | :--- | :--- |
-| **PostgreSQL** | PostgreSQL 16 Alpine | `sentinelai-postgres` | `5432:5432` | Authoritative 7-table database |
-| **Python Agents** | Python 3.11 / FastAPI | `sentinelai-agents` | `8000:8000` | AI Agents 1–4 microservices |
-| **Backend API** | Java 17 / Spring Boot 3 | `sentinelai-backend` | `8080:8080` | Core API, Orchestration, Auth, GitHub Client |
-| **Frontend UI** | Next.js 14 / React 18 | `sentinelai-frontend` | `3000:3000` | HITL Dashboard, Flow View, Live Controls |
+| **PostgreSQL** | PostgreSQL 16 Alpine | `vertexai-postgres` | `5432:5432` | Authoritative 7-table database |
+| **Python Agents** | Python 3.11 / FastAPI | `vertexai-agents` | `8000:8000` | AI Agents 1–4 microservices |
+| **Backend API** | Java 17 / Spring Boot 3 | `vertexai-backend` | `8080:8080` | Core API, Orchestration, Auth, GitHub Client |
+| **Frontend UI** | Next.js 14 / React 18 | `vertexai-frontend` | `3000:3000` | HITL Dashboard, Flow View, Live Controls |
 
 ---
 
 ## 3. Monorepo Structure
 
 ```text
-sentinelai/
+vertexai/
 ├── .github/workflows/ci-cd.yml   # Team 4: 4-Stage CI/CD pipeline (Lint, Test, Scan, Build)
 ├── backend/                      # Team 1: Spring Boot 3 Core Backend & GitHub Client
 ├── agents_service/               # Team 2: Python 3.11 AI Agents (FastAPI & httpx)
@@ -77,7 +77,7 @@ docker-compose up --build
 - **Backend API**: [http://localhost:8080](http://localhost:8080)
 - **Backend Swagger Docs**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **Python Agents Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Database**: `localhost:5432` (`sentinelai_db`)
+- **Database**: `localhost:5432` (`vertexai_db`)
 
 ---
 

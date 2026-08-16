@@ -1,4 +1,4 @@
-name: SentinelAI CI/CD Pipeline
+name: VertexAI CI/CD Pipeline
 
 on:
   push:

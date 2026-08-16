@@ -3,7 +3,7 @@
   <owner>
     <name>admin</name>
   </owner>
-  <name>OpenVAS Infrastructure Scan - SentinelAI Production Enclave</name>
+  <name>OpenVAS Infrastructure Scan - VertexAI Production Enclave</name>
   <comment>Automated scheduled comprehensive vulnerability scan</comment>
   <creation_time>2026-02-17T00:00:00Z</creation_time>
   <modification_time>2026-02-17T00:07:30Z</modification_time>

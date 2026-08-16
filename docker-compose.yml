@@ -6,23 +6,23 @@ services:
   # ============================================================================
   postgres:
     image: postgres:16-alpine
-    container_name: sentinelai-postgres
+    container_name: vertexai-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sentinelai_db}
-      POSTGRES_USER: ${POSTGRES_USER:-sentinel_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-vertexai_db}
+      POSTGRES_USER: ${POSTGRES_USER:-vertex_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vertex_secure_pass}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel_user} -d ${POSTGRES_DB:-sentinelai_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vertex_user} -d ${POSTGRES_DB:-vertexai_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - sentinelai-network
+      - vertexai-network
 
   # ============================================================================
   # 2. Python AI Agents Service (FastAPI - Agents 1, 2, 3, 4)
@@ -31,7 +31,7 @@ services:
     build:
       context: ./agents_service
       dockerfile: Dockerfile
-    container_name: sentinelai-agents
+    container_name: vertexai-agents
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -45,7 +45,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - sentinelai-network
+      - vertexai-network
 
   # ============================================================================
   # 3. Spring Boot 3 Core Backend & Orchestration API
@@ -54,26 +54,26 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: sentinelai-backend
+    container_name: vertexai-backend
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sentinelai_db}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-sentinel_user}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_secure_pass}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-vertexai_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-vertex_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-vertex_secure_pass}
       AGENTS_SERVICE_URL: http://python-agents:8000
       JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_must_be_at_least_256_bits_long_for_hmac_sha256}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITHUB_REPO: ${GITHUB_REPO:-}
+      GITHUB_REPO: ${GITHUB_REPO:-aryanosh/VertexAI}
     depends_on:
       postgres:
         condition: service_healthy
       python-agents:
         condition: service_started
     networks:
-      - sentinelai-network
+      - vertexai-network
 
   # ============================================================================
   # 4. Next.js 14 Human-in-the-Loop Dashboard UI
@@ -82,7 +82,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: sentinelai-frontend
+    container_name: vertexai-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -94,12 +94,12 @@ services:
       backend:
         condition: service_started
     networks:
-      - sentinelai-network
+      - vertexai-network
 
 volumes:
   postgres_data:
     driver: local
 
 networks:
-  sentinelai-network:
+  vertexai-network:
     driver: bridge

