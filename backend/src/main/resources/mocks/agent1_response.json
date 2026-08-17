@@ -1,0 +1,52 @@
+[
+  {
+    "cve_id": "CVE-2021-44228",
+    "vulnerability_name": "Apache Log4j Remote Code Execution (Log4Shell)",
+    "target_host": "10.0.1.10",
+    "target_port": 8080,
+    "scanner_source": "NUCLEI",
+    "cvss_score": 10.0,
+    "raw_severity": "critical",
+    "endpoint_path": "/api/v1/auth"
+  },
+  {
+    "cve_id": "CVE-2021-44228",
+    "vulnerability_name": "Log4j JNDI Injection RCE",
+    "target_host": "10.0.1.10",
+    "target_port": 8080,
+    "scanner_source": "OWASP_ZAP",
+    "cvss_score": 10.0,
+    "raw_severity": "High",
+    "endpoint_path": "/api/v1/auth"
+  },
+  {
+    "cve_id": "CVE-2023-22515",
+    "vulnerability_name": "Atlassian Confluence Broken Access Control",
+    "target_host": "10.0.1.10",
+    "target_port": 8090,
+    "scanner_source": "NUCLEI",
+    "cvss_score": 9.8,
+    "raw_severity": "critical",
+    "endpoint_path": "/setup/setupadministrator.action"
+  },
+  {
+    "cve_id": "CVE-2021-41773",
+    "vulnerability_name": "Apache HTTP Server Path Traversal",
+    "target_host": "10.0.1.10",
+    "target_port": 443,
+    "scanner_source": "NMAP",
+    "cvss_score": 7.5,
+    "raw_severity": "high",
+    "endpoint_path": "/cgi-bin/.%2e/%2e%2e/%2e%2e/bin/sh"
+  },
+  {
+    "cve_id": "CVE-2022-22965",
+    "vulnerability_name": "Spring Framework RCE (Spring4Shell)",
+    "target_host": "10.0.1.10",
+    "target_port": 8080,
+    "scanner_source": "NUCLEI",
+    "cvss_score": 9.8,
+    "raw_severity": "critical",
+    "endpoint_path": "/helloworld"
+  }
+]
