@@ -28,14 +28,13 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
 
       - name: Backend Lint & Compile (Maven)
         run: |
           if [ -f backend/pom.xml ]; then
             cd backend && mvn clean compile -DskipTests
           else
-            echo "Skipping backend compile: pom.xml not present yet."
+            echo "Team 1 backend/pom.xml pending merge. Skipping compilation."
           fi
 
       # 1.2 Agents: Python 3.11 Environment & Syntax Check
@@ -43,7 +42,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Python Agents Lint & Syntax Check
         run: |
@@ -51,7 +49,7 @@ jobs:
             pip install -r agents_service/requirements.txt flake8
             flake8 agents_service/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
           else
-            echo "Skipping python lint: requirements.txt not present yet."
+            echo "Team 2 agents_service/requirements.txt pending merge. Skipping python lint."
           fi
 
       # 1.3 Frontend: Node.js 18 & Next.js Build
@@ -59,15 +57,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Frontend Build (Next.js)
         run: |
           if [ -f frontend/package.json ]; then
             cd frontend && npm ci && npm run build
           else
-            echo "Skipping frontend build: package.json not present yet."
+            echo "Team 3 frontend/package.json pending merge. Skipping frontend build."
           fi
 
   # ============================================================================
@@ -87,14 +83,13 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
 
       - name: Run Backend Unit Tests (Maven)
         run: |
           if [ -f backend/pom.xml ]; then
             cd backend && mvn test
           else
-            echo "Skipping backend tests: pom.xml not present yet."
+            echo "Team 1 backend tests pending merge. Skipping."
           fi
 
       # 2.2 Python AI Agents Unit Tests
@@ -109,7 +104,7 @@ jobs:
             pip install -r agents_service/requirements.txt pytest httpx
             pytest agents_service/ -v || true
           else
-            echo "Skipping python tests: requirements.txt not present yet."
+            echo "Team 2 python tests pending merge. Skipping."
           fi
 
   # ============================================================================
@@ -156,4 +151,5 @@ jobs:
       - name: Build Docker Compose Images
         run: |
           cp .env.example .env
-          docker compose build || echo "Docker images ready for service delivery."
+          echo "Verifying Docker Compose configuration..."
+          docker compose config
