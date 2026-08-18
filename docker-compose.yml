@@ -1,4 +1,4 @@
-version: '3.9'
+version: '3.8'
 
 services:
   frontend:
@@ -7,7 +7,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: development
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
     depends_on:
       - backend
 
@@ -15,14 +15,15 @@ services:
     build:
       context: ./backend
     ports:
-      - "8081:8081"
+      - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: sentinelai
-      DB_USER: sentinelai
-      DB_PASSWORD: sentinelai
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=sentinelai
+      - DB_USER=sentinelai
+      - DB_PASSWORD=sentinelai
+      - PYTHON_AGENT_URL=http://agents_service:8000
     depends_on:
       - postgres
 
@@ -32,8 +33,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      APP_ENV: development
-      MODEL_PROVIDER: vertexai
+      - APP_ENV=development
+      - MODEL_PROVIDER=vertexai
 
   scanner-sandbox:
     build:
@@ -42,7 +43,7 @@ services:
       - "9000:9000"
     privileged: true
     environment:
-      SCAN_TIMEOUT_SECONDS: 300
+      - SCAN_TIMEOUT_SECONDS=300
 
   postgres:
     image: postgres:16-alpine
@@ -52,7 +53,7 @@ services:
       POSTGRES_USER: sentinelai
       POSTGRES_PASSWORD: sentinelai
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

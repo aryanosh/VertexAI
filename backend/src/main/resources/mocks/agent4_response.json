@@ -1,0 +1,12 @@
+{
+  "composite_risk_score": 96.5,
+  "priority_level": "P0_CRITICAL",
+  "sla_deadline": "2026-08-17T20:00:00Z",
+  "explainable_rationale": "Score elevated to P0 Critical (96.5/100): Vulnerability CVE-2021-44228 (Log4Shell) is actively weaponized and listed in the CISA KEV catalog (+25.0 bonus), exhibits a 97.5% EPSS 30-day exploit probability, and resides on an authorized PRODUCTION asset with Criticality Rating 5 (+20.0 bonus). Immediate remediation required within 24 hours.",
+  "ticket_payload": {
+    "title": "[P0-CRITICAL] CVE-2021-44228 Apache Log4j RCE on 10.0.1.10:8080",
+    "labels": ["security", "p0-critical", "cisa-kev", "log4shell"],
+    "assigned_team": "core-backend-team@company.com",
+    "remediation_summary": "1. Upgrade org.apache.logging.log4j:log4j-core to version >= 2.17.1.\n2. Set environment variable LOG4J_FORMAT_MSG_NO_LOOKUPS=true as temporary mitigation.\n3. Verify /api/v1/auth endpoint with re-scan after deployment."
+  }
+}
