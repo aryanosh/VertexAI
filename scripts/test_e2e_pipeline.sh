@@ -47,7 +47,7 @@ fi
 # ------------------------------------------------------------------------------
 echo ""
 echo "--- STAGE 1: Authentication (POST /api/auth/login) ---"
-AUTH_PAYLOAD='{"username":"admin@vertexai.internal","password":"VertexAdminSecurePass123!"}'
+AUTH_PAYLOAD='{"username":"admin","password":"admin123"}'
 
 if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
   LOGIN_RESP=$(curl -s -X POST "${BACKEND_URL}/api/auth/login" \
@@ -60,6 +60,7 @@ fi
 
 if [ -z "${JWT_TOKEN}" ] && [ "${E2E_DRY_RUN:-false}" != "true" ]; then
   echo "❌ Failed to acquire JWT token from ${BACKEND_URL}/api/auth/login"
+  echo "Response: ${LOGIN_RESP}"
   exit 1
 fi
 echo "✅ Authenticated successfully. JWT Token acquired."
@@ -67,26 +68,31 @@ echo "✅ Authenticated successfully. JWT Token acquired."
 AUTH_HEADER="Authorization: Bearer ${JWT_TOKEN}"
 
 # ------------------------------------------------------------------------------
-# Stage 2: Ingest Multi-Scanner Reports & Trigger Scan Pipeline
+# Stage 2: Register Monitored Asset & Trigger Scan Pipeline
 # ------------------------------------------------------------------------------
 echo ""
-echo "--- STAGE 2: Ingesting Raw Scanner Reports (POST /api/scans) ---"
-echo "  - sample_reports/nmap_scan.xml"
-echo "  - sample_reports/zap_scan.json"
-echo "  - sample_reports/nuclei_scan.jsonl"
-echo "  - sample_reports/openvas_scan.xml"
-
-SCAN_PAYLOAD='{
-  "asset_id": "asset-prod-enclave-01",
-  "reports": {
-    "nmap": "sample_reports/nmap_scan.xml",
-    "zap": "sample_reports/zap_scan.json",
-    "nuclei": "sample_reports/nuclei_scan.jsonl",
-    "openvas": "sample_reports/openvas_scan.xml"
-  }
+echo "--- STAGE 2: Registering Asset & Triggering Scan Pipeline ---"
+ASSET_PAYLOAD='{
+  "hostname": "prod-enclave-01.vertexai.local",
+  "ipAddress": "10.0.1.10",
+  "environment": "PRODUCTION",
+  "criticalityRating": 5,
+  "ownerEmail": "secops@vertexai.local",
+  "isAuthorized": true
 }'
 
 if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
+  ASSET_RESP=$(curl -s -X POST "${BACKEND_URL}/api/assets" \
+    -H "Content-Type: application/json" \
+    -H "${AUTH_HEADER}" \
+    -d "${ASSET_PAYLOAD}" || true)
+  ASSET_ID=$(echo "${ASSET_RESP}" | grep -o '"asset_id":"[^"]*' | cut -d'"' -f4 || true)
+  if [ -z "${ASSET_ID}" ]; then
+    # If already exists, fetch list
+    ASSET_ID=$(curl -s -X GET "${BACKEND_URL}/api/assets" -H "${AUTH_HEADER}" | grep -o '"asset_id":"[^"]*' | head -n 1 | cut -d'"' -f4 || echo "a1b2c3d4-e5f6-4a5b-8c9d-0123456789ab")
+  fi
+
+  SCAN_PAYLOAD="{\"assetId\":\"${ASSET_ID}\",\"scanners\":[\"nmap\",\"zap\",\"nuclei\",\"openvas\"]}"
   SCAN_RESP=$(curl -s -X POST "${BACKEND_URL}/api/scans" \
     -H "Content-Type: application/json" \
     -H "${AUTH_HEADER}" \
@@ -189,10 +195,11 @@ echo "--- STAGE 7: Testing HITL 'STOP' Behavior Verification ---"
 echo "Verifying that choosing STOP halts processing and blocks GitHub ticket creation..."
 if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
   # Trigger secondary test scan to test STOP action
+  STOP_SCAN_PAYLOAD="{\"assetId\":\"${ASSET_ID}\",\"scanners\":[\"nmap\"]}"
   STOP_SCAN_RESP=$(curl -s -X POST "${BACKEND_URL}/api/scans" \
     -H "Content-Type: application/json" \
     -H "${AUTH_HEADER}" \
-    -d '{"asset_id":"asset-test-stop","reports":{"nmap":"sample_reports/nmap_scan.xml"}}')
+    -d "${STOP_SCAN_PAYLOAD}")
   STOP_SCAN_ID=$(echo "${STOP_SCAN_RESP}" | grep -o '"scan_id":"[^"]*' | cut -d'"' -f4 || echo "scan-stop-test")
   
   # Send STOP action
