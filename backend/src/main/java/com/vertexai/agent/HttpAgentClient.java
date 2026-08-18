@@ -42,13 +42,19 @@ public class HttpAgentClient implements AgentClient {
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(rawReports, headers);
 
         try {
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
                     request,
                     new ParameterizedTypeReference<>() {}
             );
-            return response.getBody() != null ? response.getBody() : Collections.emptyList();
+            if (response.getBody() != null && response.getBody().containsKey("findings")) {
+                Object findings = response.getBody().get("findings");
+                if (findings instanceof List) {
+                    return (List<Map<String, Object>>) findings;
+                }
+            }
+            return Collections.emptyList();
         } catch (Exception e) {
             log.error("Failed to invoke Agent 1 at {}: {}", url, e.getMessage());
             throw new RuntimeException("Agent 1 Parser invocation failed: " + e.getMessage(), e);
@@ -62,16 +68,23 @@ public class HttpAgentClient implements AgentClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<List<Map<String, Object>>> request = new HttpEntity<>(unifiedFindings, headers);
+        Map<String, Object> payload = Collections.singletonMap("findings", unifiedFindings);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
 
         try {
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
                     request,
                     new ParameterizedTypeReference<>() {}
             );
-            return response.getBody() != null ? response.getBody() : Collections.emptyList();
+            if (response.getBody() != null && response.getBody().containsKey("findings")) {
+                Object findings = response.getBody().get("findings");
+                if (findings instanceof List) {
+                    return (List<Map<String, Object>>) findings;
+                }
+            }
+            return Collections.emptyList();
         } catch (Exception e) {
             log.error("Failed to invoke Agent 2 at {}: {}", url, e.getMessage());
             throw new RuntimeException("Agent 2 Noise Reduction invocation failed: " + e.getMessage(), e);
@@ -85,16 +98,23 @@ public class HttpAgentClient implements AgentClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<List<Map<String, Object>>> request = new HttpEntity<>(canonicalFindings, headers);
+        Map<String, Object> payload = Collections.singletonMap("findings", canonicalFindings);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
 
         try {
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
                     request,
                     new ParameterizedTypeReference<>() {}
             );
-            return response.getBody() != null ? response.getBody() : Collections.emptyList();
+            if (response.getBody() != null && response.getBody().containsKey("findings")) {
+                Object findings = response.getBody().get("findings");
+                if (findings instanceof List) {
+                    return (List<Map<String, Object>>) findings;
+                }
+            }
+            return Collections.emptyList();
         } catch (Exception e) {
             log.error("Failed to invoke Agent 3 at {}: {}", url, e.getMessage());
             throw new RuntimeException("Agent 3 Threat Intelligence invocation failed: " + e.getMessage(), e);

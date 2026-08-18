@@ -25,10 +25,12 @@ class Report(BaseModel):
     content: str
 
 class ParseRequest(BaseModel):
-    reports: List[Report]
+    reports: Optional[List[Report]] = None
+    target_host: Optional[str] = None
+    scanners: Optional[List[str]] = None
 
 class ParseResponse(BaseModel):
-    status: str
+    status: str = "WAITING_FOR_HUMAN"
     findings: List[UnifiedFinding]
 
 def parse_zap(content: str) -> List[UnifiedFinding]:
@@ -235,15 +237,41 @@ def parse_nmap(content: str) -> List[UnifiedFinding]:
 @router.post("/parse", response_model=ParseResponse)
 async def parse_reports(request: ParseRequest):
     all_findings = []
-    for report in request.reports:
+    
+    reports = request.reports or []
+    if not reports:
+        # Load sample report fixtures from disk for requested scanners or all scanners
+        import os
+        sample_dir = os.path.join(os.path.dirname(__file__), "sample_reports")
+        if not os.path.exists(sample_dir):
+            sample_dir = os.path.join(os.path.dirname(__file__), "..", "sample_reports")
+            
+        requested_scanners = [s.upper() for s in request.scanners] if request.scanners else ["OWASP_ZAP", "NUCLEI", "OPENVAS", "NMAP"]
+        
+        scanner_file_map = {
+            "OWASP_ZAP": "zap_scan.json",
+            "ZAP": "zap_scan.json",
+            "NUCLEI": "nuclei_scan.jsonl",
+            "OPENVAS": "openvas_scan.xml",
+            "NMAP": "nmap_scan.xml"
+        }
+        
+        for sc, fname in scanner_file_map.items():
+            if any(sc in req for req in requested_scanners):
+                fpath = os.path.join(sample_dir, fname)
+                if os.path.exists(fpath):
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        reports.append(Report(scanner_type=sc, content=f.read()))
+
+    for report in reports:
         scanner = report.scanner_type.upper()
-        if scanner == "OWASP_ZAP":
+        if "ZAP" in scanner:
             all_findings.extend(parse_zap(report.content))
-        elif scanner == "NUCLEI":
+        elif "NUCLEI" in scanner:
             all_findings.extend(parse_nuclei(report.content))
-        elif scanner == "OPENVAS":
+        elif "OPENVAS" in scanner:
             all_findings.extend(parse_openvas(report.content))
-        elif scanner == "NMAP":
+        elif "NMAP" in scanner:
             all_findings.extend(parse_nmap(report.content))
             
     return ParseResponse(status="WAITING_FOR_HUMAN", findings=all_findings)

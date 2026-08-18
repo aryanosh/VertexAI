@@ -24,7 +24,7 @@ app:
     secret: ${JWT_SECRET:vertexai-jwt-secret-key-for-development-only-change-in-production}
     expiration-ms: 86400000
   python-agents:
-    base-url: ${PYTHON_AGENT_URL:http://localhost:8000}
+    base-url: ${PYTHON_AGENT_URL:${AGENTS_SERVICE_URL:http://localhost:8000}}
   github:
     token: ${GITHUB_TOKEN:}
     repo-owner: ${GITHUB_REPO_OWNER:}

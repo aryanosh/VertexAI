@@ -31,7 +31,8 @@ class AssetContext(BaseModel):
 
 class ScoreRequest(BaseModel):
     findings: List[EnrichedFinding]
-    asset_context: AssetContext
+    asset_context: Optional[AssetContext] = None
+    asset_criticality: Optional[int] = None
 
 class ScoredFinding(BaseModel):
     finding_id: str
@@ -135,6 +136,16 @@ async def score_and_ticket(request: ScoreRequest):
     scored_findings = []
     ticket_payloads = []
 
+    asset_context = request.asset_context
+    if asset_context is None:
+        crit = request.asset_criticality if request.asset_criticality is not None else 5
+        asset_context = AssetContext(
+            asset_id="asset-default",
+            hostname="target-host.local",
+            criticality_rating=crit,
+            environment="PRODUCTION"
+        )
+
     for finding in request.findings:
         if finding.is_suppressed or finding.is_accepted_risk:
             # Include without score/ticket
@@ -159,11 +170,11 @@ async def score_and_ticket(request: ScoreRequest):
             finding.cvss_base_score,
             finding.epss_score,
             finding.is_cisa_kev,
-            request.asset_context.criticality_rating
+            asset_context.criticality_rating
         )
         
         priority, sla = assign_priority_and_sla(score)
-        rationale = generate_rationale(finding, score, priority, request.asset_context)
+        rationale = generate_rationale(finding, score, priority, asset_context)
         
         scored_findings.append(ScoredFinding(
             finding_id=finding.finding_id,
@@ -185,7 +196,7 @@ async def score_and_ticket(request: ScoreRequest):
             explainable_rationale=rationale
         ))
         
-        ticket_body = generate_ticket_body(finding, score, priority, sla, rationale, request.asset_context)
+        ticket_body = generate_ticket_body(finding, score, priority, sla, rationale, asset_context)
         
         sla_hours = 24 if priority == "P0_CRITICAL" else (72 if priority == "P1_HIGH" else (336 if priority == "P2_MEDIUM" else 720))
         sla_label = f"sla-{sla_hours}h"
