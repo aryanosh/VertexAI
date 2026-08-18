@@ -26,3 +26,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 *.log
+
+# Java / Maven target
+target/
+backend/target/
