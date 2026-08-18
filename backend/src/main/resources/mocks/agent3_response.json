@@ -1,0 +1,62 @@
+[
+  {
+    "fingerprint_hash": "e4d909c290d0fb1ca068ffaddf22cbd0",
+    "cve_id": "CVE-2021-44228",
+    "vulnerability_name": "Apache Log4j Remote Code Execution (Log4Shell)",
+    "target_host": "10.0.1.10",
+    "target_port": 8080,
+    "scanner_sources": ["NUCLEI", "OWASP_ZAP"],
+    "cvss_base_score": 10.0,
+    "false_positive_prob": 0.02,
+    "is_suppressed": false,
+    "is_cisa_kev": true,
+    "epss_score": 0.975,
+    "epss_percentile": 0.999,
+    "exploit_db_available": true
+  },
+  {
+    "fingerprint_hash": "a8f5c6b90123456789abcdef01234567",
+    "cve_id": "CVE-2023-22515",
+    "vulnerability_name": "Atlassian Confluence Broken Access Control",
+    "target_host": "10.0.1.10",
+    "target_port": 8090,
+    "scanner_sources": ["NUCLEI"],
+    "cvss_base_score": 9.8,
+    "false_positive_prob": 0.05,
+    "is_suppressed": false,
+    "is_cisa_kev": true,
+    "epss_score": 0.942,
+    "epss_percentile": 0.995,
+    "exploit_db_available": true
+  },
+  {
+    "fingerprint_hash": "b7e2d4c890123456789abcdef01234568",
+    "cve_id": "CVE-2021-41773",
+    "vulnerability_name": "Apache HTTP Server Path Traversal",
+    "target_host": "10.0.1.10",
+    "target_port": 443,
+    "scanner_sources": ["NMAP"],
+    "cvss_base_score": 7.5,
+    "false_positive_prob": 0.08,
+    "is_suppressed": false,
+    "is_cisa_kev": true,
+    "epss_score": 0.885,
+    "epss_percentile": 0.982,
+    "exploit_db_available": true
+  },
+  {
+    "fingerprint_hash": "c9a1e3f790123456789abcdef01234569",
+    "cve_id": "CVE-2022-22965",
+    "vulnerability_name": "Spring Framework RCE (Spring4Shell)",
+    "target_host": "10.0.1.10",
+    "target_port": 8080,
+    "scanner_sources": ["NUCLEI"],
+    "cvss_base_score": 9.8,
+    "false_positive_prob": 0.04,
+    "is_suppressed": false,
+    "is_cisa_kev": true,
+    "epss_score": 0.921,
+    "epss_percentile": 0.991,
+    "exploit_db_available": true
+  }
+]

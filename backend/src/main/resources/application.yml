@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sentinelai}
+    username: ${DB_USER:sentinelai}
+    password: ${DB_PASSWORD:sentinelai}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:vertexai-jwt-secret-key-for-development-only-change-in-production}
+    expiration-ms: 86400000
+  python-agents:
+    base-url: ${PYTHON_AGENT_URL:http://localhost:8000}
+  github:
+    token: ${GITHUB_TOKEN:}
+    repo-owner: ${GITHUB_REPO_OWNER:}
+    repo-name: ${GITHUB_REPO_NAME:}
