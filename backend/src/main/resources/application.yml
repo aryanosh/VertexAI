@@ -27,5 +27,5 @@ app:
     base-url: ${PYTHON_AGENT_URL:http://localhost:8000}
   github:
     token: ${GITHUB_TOKEN:}
-    repo-owner: ${GITHUB_REPO_OWNER:}
-    repo-name: ${GITHUB_REPO_NAME:}
+    repo-owner: ${GITHUB_REPO_OWNER:Iyad777}
+    repo-name: ${GITHUB_REPO_NAME:git_test}

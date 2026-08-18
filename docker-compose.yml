@@ -7,7 +7,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_WS_URL: ws://localhost:8080/ws/pipeline
     depends_on:
       - backend
 
@@ -15,7 +17,7 @@ services:
     build:
       context: ./backend
     ports:
-      - "8081:8081"
+      - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
@@ -23,8 +25,10 @@ services:
       DB_NAME: sentinelai
       DB_USER: sentinelai
       DB_PASSWORD: sentinelai
+      PYTHON_AGENT_URL: http://agents_service:8000
     depends_on:
       - postgres
+      - agents_service
 
   agents_service:
     build:

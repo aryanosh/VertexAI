@@ -187,6 +187,7 @@ export interface WebSocketMessage {
   status?: string;
   stage?: number;
   message?: string;
+  payload?: unknown;
   timestamp?: string;
   current_stage?: number;
 }

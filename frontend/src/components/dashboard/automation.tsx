@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useCountUp } from './use-count-up';
 
@@ -42,11 +41,7 @@ function Gauge({ value }: { value: number }) {
   );
 }
 
-interface AutomationProps {
-  onOpenHITL?: () => void;
-}
-
-export function Automation({ onOpenHITL }: AutomationProps) {
+export function Automation() {
   const [stats, setStats] = useState({
     rawFindings: 2500,
     noiseReductionPct: 94,
@@ -114,14 +109,6 @@ export function Automation({ onOpenHITL }: AutomationProps) {
           </span>
         </div>
       </div>
-
-      <button
-        onClick={onOpenHITL}
-        className="shrink-0 mt-1 flex items-center gap-1 font-mono text-[11px] 2xl:text-xs font-medium text-brand hover:underline"
-      >
-        Trigger AI deduplication scan
-        <ArrowRight className="h-3 w-3 2xl:h-3.5 2xl:w-3.5" />
-      </button>
     </section>
   );
 }

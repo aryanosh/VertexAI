@@ -25,29 +25,75 @@ import {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-// In-memory token store with localStorage caching in browser
+// In-memory token store with sessionStorage in browser (fresh login on each dev launch)
 let authToken: string | null = null;
 let currentRole: string | null = null;
 let currentUsername: string | null = null;
 
 if (typeof window !== 'undefined') {
-  authToken = localStorage.getItem('vertexai_token');
-  currentRole = localStorage.getItem('vertexai_role');
-  currentUsername = localStorage.getItem('vertexai_username');
+  authToken = sessionStorage.getItem('vertexai_token');
+  currentRole = sessionStorage.getItem('vertexai_role');
+  currentUsername = sessionStorage.getItem('vertexai_username');
 }
 
 export const auth = {
-  getToken: () => authToken,
-  getRole: () => currentRole || 'ANALYST',
-  getUsername: () => currentUsername || 'analyst',
+  getToken: () => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('vertexai_token') || authToken;
+    }
+    return authToken;
+  },
+  getRole: () => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('vertexai_role') || currentRole || 'ANALYST';
+    }
+    return currentRole || 'ANALYST';
+  },
+  getUsername: () => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('vertexai_username') || currentUsername || 'analyst';
+    }
+    return currentUsername || 'analyst';
+  },
+  isAuthenticated: () => {
+    if (typeof window !== 'undefined') {
+      return Boolean(sessionStorage.getItem('vertexai_token'));
+    }
+    return Boolean(authToken);
+  },
+  login: async (username: string, password: string): Promise<LoginResponse> => {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password } as LoginRequest),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || `Authentication failed with status ${res.status}`);
+    }
+
+    const data = (await res.json()) as LoginResponse;
+    auth.setSession(data.token, data.username, data.role);
+    return data;
+  },
   setSession: (token: string, username: string, role: string) => {
     authToken = token;
     currentUsername = username;
     currentRole = role;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('vertexai_token', token);
-      localStorage.setItem('vertexai_username', username);
-      localStorage.setItem('vertexai_role', role);
+      sessionStorage.setItem('vertexai_token', token);
+      sessionStorage.setItem('vertexai_username', username);
+      sessionStorage.setItem('vertexai_role', role);
+      // Clean up any legacy localStorage tokens
+      localStorage.removeItem('vertexai_token');
+      localStorage.removeItem('vertexai_username');
+      localStorage.removeItem('vertexai_role');
+      window.dispatchEvent(
+        new CustomEvent('auth-changed', {
+          detail: { token, username, role, isAuthenticated: true },
+        })
+      );
     }
   },
   clearSession: () => {
@@ -55,37 +101,34 @@ export const auth = {
     currentRole = null;
     currentUsername = null;
     if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('vertexai_token');
+      sessionStorage.removeItem('vertexai_username');
+      sessionStorage.removeItem('vertexai_role');
       localStorage.removeItem('vertexai_token');
       localStorage.removeItem('vertexai_username');
       localStorage.removeItem('vertexai_role');
+      window.dispatchEvent(
+        new CustomEvent('auth-changed', {
+          detail: { token: null, username: null, role: null, isAuthenticated: false },
+        })
+      );
     }
   },
 };
 
 /**
- * Ensure user has a valid JWT token. If not logged in, auto-authenticates with
- * the default analyst seed credentials (analyst / analyst123).
+ * Ensure user has a valid JWT token.
  */
 async function ensureAuthenticated(): Promise<string> {
   if (authToken) return authToken;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: 'analyst',
-        password: 'analyst123',
-      } as LoginRequest),
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as LoginResponse;
-      auth.setSession(data.token, data.username, data.role);
-      return data.token;
+  if (typeof window !== 'undefined') {
+    const stored = sessionStorage.getItem('vertexai_token');
+    if (stored) {
+      authToken = stored;
+      currentRole = sessionStorage.getItem('vertexai_role');
+      currentUsername = sessionStorage.getItem('vertexai_username');
+      return stored;
     }
-  } catch (err) {
-    console.warn('[API] Auto-login fallback (backend may be offline):', err);
   }
   return '';
 }
@@ -198,15 +241,28 @@ export const api = {
     });
   },
 
-  // 6. Final Human Approval -> Dispatch GitHub Ticket (POST /api/vulnerabilities/{id}/ticket)
+  // 6. Create Ticket (POST /api/vulnerabilities/{id}/ticket)
   createTicket: async (
     findingId: string,
     approved: boolean = true
   ): Promise<TicketResponse> => {
-    return apiFetch<TicketResponse>(`/api/vulnerabilities/${findingId}/ticket`, {
+    const res = await apiFetch<TicketResponse>(`/api/vulnerabilities/${findingId}/ticket`, {
       method: 'POST',
       body: JSON.stringify({ approved } as TicketApprovalRequest),
     });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('pipeline-event', {
+          detail: {
+            status: 'TICKET_DISPATCHED',
+            stage: 4,
+            message: `GitHub issue successfully dispatched: ${res.ticket_url || 'Issue created'}`,
+          },
+        })
+      );
+    }
+    return res;
   },
 
   // 7. Assets (GET/POST /api/assets)
@@ -242,13 +298,26 @@ export const api = {
     assetId: string,
     scanners: string[] = ['NMAP', 'NUCLEI', 'OWASP_ZAP', 'OPENVAS']
   ): Promise<ScanStatusResponse> => {
-    return apiFetch<ScanStatusResponse>('/api/scans', {
+    const res = await apiFetch<ScanStatusResponse>('/api/scans', {
       method: 'POST',
       body: JSON.stringify({
         assetId,
         scanners,
       } as ScanRequest),
     });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('pipeline-event', {
+          detail: {
+            status: 'SCAN_STARTED',
+            stage: 1,
+            message: `Sandbox scan launched with ${scanners.join(', ')}. Agent 1 schema parsing complete.`,
+          },
+        })
+      );
+    }
+    return res;
   },
 
   // 9. Get Scan Status (GET /api/scans/{id})
@@ -261,9 +330,31 @@ export const api = {
     scanId: string,
     action: 'CONTINUE' | 'STOP'
   ): Promise<ScanStatusResponse> => {
-    return apiFetch<ScanStatusResponse>(`/api/scans/${scanId}/control`, {
+    const res = await apiFetch<ScanStatusResponse>(`/api/scans/${scanId}/control`, {
       method: 'POST',
       body: JSON.stringify({ action } as ControlActionRequest),
     });
+
+    if (typeof window !== 'undefined') {
+      const stage = res.currentStage ?? res.current_stage ?? 1;
+      const status = res.status ?? 'WAITING_FOR_HUMAN';
+      const msg =
+        action === 'STOP'
+          ? `Pipeline stopped by analyst at Gate ${stage}.`
+          : status === 'COMPLETED'
+          ? 'Pipeline execution completed. All human approval gates passed.'
+          : `Gate ${stage - 1 || 1} approved. Agent ${stage} complete — Checkpoint Gate ${stage} ready for review.`;
+
+      window.dispatchEvent(
+        new CustomEvent('pipeline-event', {
+          detail: {
+            status: status === 'COMPLETED' ? 'COMPLETED' : `GATE_${stage}_READY`,
+            stage,
+            message: msg,
+          },
+        })
+      );
+    }
+    return res;
   },
 };

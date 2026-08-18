@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Shield, ArrowRight } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { CanonicalFinding } from '@/types/contracts';
 
@@ -15,7 +15,6 @@ interface ThreatItem {
 }
 
 interface TopThreatsProps {
-  onOpenHITL?: () => void;
   refreshTrigger?: number;
 }
 
@@ -26,7 +25,7 @@ const DEFAULT_THREATS: ThreatItem[] = [
   { name: 'Spring4Shell RCE', cve: 'CVE-2022-22965', value: 52, priority: 'P2_MEDIUM', bar: 'bg-slate-400', text: 'text-slate-500' },
 ];
 
-export function TopThreats({ onOpenHITL, refreshTrigger }: TopThreatsProps) {
+export function TopThreats({ refreshTrigger }: TopThreatsProps) {
   const [threats, setThreats] = useState<ThreatItem[]>(DEFAULT_THREATS);
 
   useEffect(() => {
@@ -71,15 +70,14 @@ export function TopThreats({ onOpenHITL, refreshTrigger }: TopThreatsProps) {
         {threats.map((t, idx) => (
           <div
             key={t.name + idx}
-            onClick={onOpenHITL}
-            className="group flex cursor-pointer items-center gap-2 rounded-lg p-1 -mx-1 hover:bg-slate-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg p-1 -mx-1"
           >
-            <span className="flex h-6 w-6 2xl:h-7 2xl:w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500 group-hover:bg-brand-soft group-hover:text-brand">
+            <span className="flex h-6 w-6 2xl:h-7 2xl:w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
               <Shield className="h-3 w-3 2xl:h-3.5 2xl:w-3.5" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">
-                <p className="truncate text-xs text-slate-700 font-medium group-hover:text-brand transition-colors">
+                <p className="truncate text-xs text-slate-700 font-medium">
                   {t.name}
                 </p>
                 <span className={`font-mono text-xs font-bold ${t.text}`}>
@@ -96,14 +94,6 @@ export function TopThreats({ onOpenHITL, refreshTrigger }: TopThreatsProps) {
           </div>
         ))}
       </div>
-
-      <button
-        onClick={onOpenHITL}
-        className="shrink-0 flex items-center gap-1 font-mono text-[11px] 2xl:text-xs font-medium text-brand hover:underline"
-      >
-        Inspect all canonical findings
-        <ArrowRight className="h-3 w-3 2xl:h-3.5 2xl:w-3.5" />
-      </button>
     </section>
   );
 }

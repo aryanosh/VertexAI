@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Cpu,
   Layers,
@@ -9,6 +9,7 @@ import {
   Bug,
   ChevronRight,
   ShieldCheck,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -89,10 +90,36 @@ const STAGES: StageData[] = [
 ];
 
 interface ThreatFlowProps {
-  onSelectNode?: (nodeId: string) => void;
+  currentStage?: number;
+  status?: string;
 }
 
-export function ThreatFlow({ onSelectNode }: ThreatFlowProps) {
+export function ThreatFlow({ currentStage: propStage, status: propStatus }: ThreatFlowProps) {
+  const [activeStage, setActiveStage] = useState<number>(propStage ?? 0);
+  const [activeStatus, setActiveStatus] = useState<string>(propStatus ?? 'IDLE');
+
+  useEffect(() => {
+    if (propStage !== undefined) setActiveStage(propStage);
+    if (propStatus !== undefined) setActiveStatus(propStatus);
+  }, [propStage, propStatus]);
+
+  useEffect(() => {
+    const handlePipelineEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ status?: string; stage?: number }>;
+      if (custom.detail) {
+        if (custom.detail.stage !== undefined) {
+          setActiveStage(custom.detail.stage);
+        }
+        if (custom.detail.status) {
+          setActiveStatus(custom.detail.status);
+        }
+      }
+    };
+
+    window.addEventListener('pipeline-event', handlePipelineEvent);
+    return () => window.removeEventListener('pipeline-event', handlePipelineEvent);
+  }, []);
+
   return (
     <div className="relative w-full flex-1 flex flex-col justify-center px-1 2xl:px-3 py-2">
       {/* Horizontal Stepper Grid */}
@@ -100,32 +127,66 @@ export function ThreatFlow({ onSelectNode }: ThreatFlowProps) {
         {STAGES.map((stg, idx) => {
           const Icon = stg.icon;
           const isLast = idx === STAGES.length - 1;
+          const isStatusDone =
+            activeStatus === 'COMPLETED' ||
+            activeStatus === 'TICKET_DISPATCHED' ||
+            activeStatus === 'STAGE_4_PASSED' ||
+            activeStatus === 'RESOLVED';
+          const isPassed =
+            activeStage > stg.step ||
+            (stg.step === 4 && (isStatusDone || activeStage === 4 && activeStatus === 'COMPLETED')) ||
+            (isStatusDone && activeStage >= stg.step);
+          const isCurrent = activeStage === stg.step && activeStage > 0 && !isPassed;
+          const isWaiting = isCurrent && activeStatus.includes('WAITING');
 
           return (
             <div key={stg.id} className="relative flex items-center">
               {/* Stage Card */}
               <div
-                onClick={() => onSelectNode?.(stg.id)}
-                className="group relative flex-1 cursor-pointer flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-2.5 2xl:p-3 shadow-xs hover:border-brand hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                className={`relative flex-1 cursor-default flex flex-col justify-between rounded-xl border p-2.5 2xl:p-3 transition-all duration-300 ${
+                  isPassed
+                    ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 shadow-xs'
+                    : isCurrent
+                    ? 'border-brand bg-brand-soft/40 shadow-md ring-2 ring-brand/30 -translate-y-0.5'
+                    : 'border-slate-200 bg-white shadow-xs opacity-90'
+                }`}
               >
                 {/* Top header row */}
                 <div className="flex items-center justify-between">
                   <div
-                    className={`flex h-7 w-7 2xl:h-8 2xl:w-8 items-center justify-center rounded-lg ${stg.iconBg} ${stg.iconColor} transition-transform group-hover:scale-105`}
+                    className={`flex h-7 w-7 2xl:h-8 2xl:w-8 items-center justify-center rounded-lg ${
+                      isPassed
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : isCurrent
+                        ? 'bg-brand text-white'
+                        : `${stg.iconBg} ${stg.iconColor}`
+                    }`}
                   >
                     <Icon className="h-3.5 w-3.5 2xl:h-4 2xl:w-4" strokeWidth={2} />
                   </div>
-                  <span
-                    className={`rounded-md border px-1.5 py-0.5 font-mono text-[9px] 2xl:text-[10px] font-semibold ${stg.tagColor}`}
-                  >
-                    {stg.tag}
-                  </span>
+
+                  {isPassed ? (
+                    <span className="flex items-center gap-0.5 rounded-md bg-emerald-100 px-1.5 py-0.5 font-mono text-[9px] font-bold text-emerald-800">
+                      <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
+                      PASSED
+                    </span>
+                  ) : isCurrent ? (
+                    <span className="flex items-center gap-1 rounded-md bg-brand px-1.5 py-0.5 font-mono text-[9px] font-bold text-white animate-pulse">
+                      {isWaiting ? 'GATE READY' : 'ACTIVE'}
+                    </span>
+                  ) : (
+                    <span
+                      className={`rounded-md border px-1.5 py-0.5 font-mono text-[9px] 2xl:text-[10px] font-semibold ${stg.tagColor}`}
+                    >
+                      {stg.tag}
+                    </span>
+                  )}
                 </div>
 
                 {/* Body details */}
                 <div className="mt-2 min-w-0">
                   <div className="flex items-center gap-1">
-                    <span className="font-mono text-xs 2xl:text-sm font-bold text-slate-800 truncate group-hover:text-brand transition-colors">
+                    <span className="font-mono text-xs 2xl:text-sm font-bold text-slate-800 truncate">
                       {stg.name}
                     </span>
                     {stg.step > 0 && (
@@ -141,12 +202,20 @@ export function ThreatFlow({ onSelectNode }: ThreatFlowProps) {
 
                 {/* Bottom Human Review Gate Indicator */}
                 <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between">
-                  <span className="font-mono text-[9px] text-amber-700 font-semibold flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span className="font-mono text-[9px] text-slate-600 font-semibold flex items-center gap-1">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        isPassed
+                          ? 'bg-emerald-500'
+                          : isCurrent
+                          ? 'bg-brand animate-ping'
+                          : 'bg-slate-300'
+                      }`}
+                    />
                     {stg.gateLabel}
                   </span>
-                  <span className="font-mono text-[9px] text-slate-400 group-hover:text-slate-700">
-                    Review →
+                  <span className="font-mono text-[9px] text-slate-400">
+                    Stage {stg.step}
                   </span>
                 </div>
               </div>
@@ -154,7 +223,13 @@ export function ThreatFlow({ onSelectNode }: ThreatFlowProps) {
               {/* Connecting arrow between cards */}
               {!isLast && (
                 <div className="hidden sm:flex -mr-2 z-10 items-center justify-center pl-1">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200 shadow-2xs">
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full border shadow-2xs transition-colors ${
+                      isPassed
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                        : 'bg-slate-100 text-slate-400 border-slate-200'
+                    }`}
+                  >
                     <ChevronRight className="h-3 w-3" />
                   </span>
                 </div>
@@ -167,16 +242,23 @@ export function ThreatFlow({ onSelectNode }: ThreatFlowProps) {
       {/* Pipeline Summary Sub-bar */}
       <div className="mt-2.5 flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/80 px-3 py-1.5">
         <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-mono text-[11px] text-slate-600 font-medium">
-            Supervised DAG: Agent 1 ➔ Agent 2 ➔ Agent 3 ➔ Agent 4 ➔ Human Approval
+          <span
+            className={`flex h-2 w-2 rounded-full ${
+              activeStage > 0 ? 'bg-brand animate-ping' : 'bg-emerald-500 animate-pulse'
+            }`}
+          />
+          <span className="font-mono text-[11px] text-slate-700 font-semibold">
+            {activeStage > 0
+              ? `Supervised Scan In Progress: Stage ${activeStage} (${activeStatus})`
+              : 'Supervised DAG: Agent 1 ➔ Agent 2 ➔ Agent 3 ➔ Agent 4 ➔ Human Approval'}
           </span>
         </div>
         <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-          <span>GitHub Dispatch on Stage 4 Approval</span>
+          <span>GitHub Dispatch Strictly on Stage 4 Approval</span>
         </div>
       </div>
     </div>
   );
 }
+
