@@ -3,12 +3,8 @@
 /**
  * MSWProvider — Client Component
  *
- * Conditionally starts the Mock Service Worker in development mode.
- * In production (or when NEXT_PUBLIC_API_URL points at the real backend),
- * the worker is never started and no mock code runs.
- *
- * Uses a singleton initialization promise to prevent double-start errors
- * on page refresh / React 18 Strict Mode.
+ * Starts Mock Service Worker only when explicitly enabled via NEXT_PUBLIC_ENABLE_MOCK=true.
+ * When pointing to the real Spring Boot backend (http://localhost:8080), MSW is bypassed.
  */
 
 import { useEffect, useState } from 'react';
@@ -22,7 +18,7 @@ declare global {
 
 async function initMSW(): Promise<void> {
   if (typeof window === 'undefined') return;
-  if (process.env.NODE_ENV !== 'development') return;
+  if (process.env.NEXT_PUBLIC_ENABLE_MOCK !== 'true') return;
 
   if (window.__mswInitialized) return;
   if (window.__mswPromise) {
@@ -42,7 +38,6 @@ async function initMSW(): Promise<void> {
       window.__mswInitialized = true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      // Ignore if network is already enabled / already started during Fast Refresh
       if (message.includes('already enabled') || message.includes('already registered')) {
         window.__mswInitialized = true;
         return;
@@ -60,27 +55,18 @@ interface MSWProviderProps {
 }
 
 export default function MSWProvider({ children }: MSWProviderProps) {
-  const [mswReady, setMswReady] = useState(
-    process.env.NODE_ENV !== 'development' ||
-      (typeof window !== 'undefined' && Boolean(window.__mswInitialized))
-  );
+  const isMockEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCK === 'true';
+  const [mswReady, setMswReady] = useState(!isMockEnabled);
 
   useEffect(() => {
-    if (!mswReady) {
+    if (isMockEnabled && !mswReady) {
       initMSW().finally(() => setMswReady(true));
     }
-  }, [mswReady]);
+  }, [isMockEnabled, mswReady]);
 
-  // In production, render immediately without waiting for MSW
-  if (process.env.NODE_ENV !== 'development') {
-    return <>{children}</>;
-  }
-
-  // In development, wait for MSW worker to start before rendering
-  if (!mswReady) {
+  if (isMockEnabled && !mswReady) {
     return null;
   }
 
   return <>{children}</>;
 }
-

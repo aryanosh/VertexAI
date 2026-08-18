@@ -125,9 +125,8 @@ export const mockDashboard: DashboardMetrics = {
   total_findings: 5,
   active_findings: 4,
   suppressed_findings: 1,
-  noise_reduction_rate: 94.0,
+  noise_reduction_percent: 94.0,
   top_threats: mockFindings.filter((f) => !f.is_suppressed).slice(0, 3),
-  pipeline_status: 'WAITING_FOR_HUMAN',
 };
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { Cloud, Monitor, Server, Database, CircleCheck } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Cloud, Monitor, Server, Database, CircleCheck } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { api } from '@/lib/api';
+import type { Asset } from '@/types/contracts';
 
 type Item = {
   icon: LucideIcon;
@@ -13,51 +15,63 @@ type Item = {
   text: string;
 };
 
-const DEFAULT_ITEMS: Item[] = [
-  { icon: Cloud, name: "Cloud Services", value: 99, bar: "bg-emerald-500", text: "text-emerald-600" },
-  { icon: Monitor, name: "Endpoints", count: "4,692", value: 97, bar: "bg-emerald-500", text: "text-emerald-600" },
-  { icon: Server, name: "Servers", count: "128", value: 99, bar: "bg-emerald-500", text: "text-emerald-600" },
-  { icon: Database, name: "Databases", count: "56", value: 97, bar: "bg-amber-400", text: "text-amber-600" },
-];
-
 export function Infrastructure() {
-  const [items, setItems] = useState<Item[]>(DEFAULT_ITEMS);
-  const [uptime, setUptime] = useState<string>("99.6%");
+  const [items, setItems] = useState<Item[]>([
+    { icon: Server, name: 'Production Hosts', count: '1', value: 100, bar: 'bg-emerald-500', text: 'text-emerald-600' },
+    { icon: Cloud, name: 'Monitored Endpoints', count: '4', value: 98, bar: 'bg-emerald-500', text: 'text-emerald-600' },
+    { icon: Database, name: 'Database Clusters', count: '1', value: 100, bar: 'bg-emerald-500', text: 'text-emerald-600' },
+    { icon: Monitor, name: 'Scanner Sandbox', count: '4 active', value: 100, bar: 'bg-emerald-500', text: 'text-emerald-600' },
+  ]);
+  const [assetCount, setAssetCount] = useState<number>(1);
 
   useEffect(() => {
-    const fetchMetrics = async () => {
+    const fetchAssets = async () => {
       try {
-        const res = await fetch("/api/dashboard");
-        if (!res.ok) return;
-        
-        const data = await res.json();
-        
-        if (data?.infrastructure && Array.isArray(data.infrastructure)) {
-          const updatedItems = DEFAULT_ITEMS.map((defaultItem, index) => {
-            const apiItem = data.infrastructure[index];
-            if (apiItem) {
-              return { 
-                ...defaultItem, 
-                value: apiItem.status ?? defaultItem.value,
-                count: apiItem.count ? apiItem.count.toLocaleString() : defaultItem.count 
-              };
-            }
-            return defaultItem;
-          });
-          setItems(updatedItems);
-          
-          if (data.overallUptime) {
-             setUptime(`${data.overallUptime}%`);
-          }
+        const assets: Asset[] = await api.getAssets();
+        setAssetCount(assets.length);
+        if (assets.length > 0) {
+          const authCount = assets.filter((a) => a.isAuthorized ?? a.is_authorized ?? true).length;
+          setItems([
+            {
+              icon: Server,
+              name: 'Authorized Targets',
+              count: `${authCount}/${assets.length}`,
+              value: Math.round((authCount / assets.length) * 100),
+              bar: 'bg-emerald-500',
+              text: 'text-emerald-600',
+            },
+            {
+              icon: Cloud,
+              name: 'Primary Host',
+              count: assets[0].hostname.slice(0, 16),
+              value: 100,
+              bar: 'bg-emerald-500',
+              text: 'text-emerald-600',
+            },
+            {
+              icon: Database,
+              name: 'PostgreSQL 16 (7-Table)',
+              count: 'Connected',
+              value: 100,
+              bar: 'bg-emerald-500',
+              text: 'text-emerald-600',
+            },
+            {
+              icon: Monitor,
+              name: 'Scanner Sandbox',
+              count: 'Isolated',
+              value: 100,
+              bar: 'bg-emerald-500',
+              text: 'text-emerald-600',
+            },
+          ]);
         }
       } catch (err) {
-        console.error("Failed to fetch infrastructure metrics", err);
+        console.warn('Failed to fetch infrastructure assets', err);
       }
     };
 
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
+    fetchAssets();
   }, []);
 
   return (
@@ -68,7 +82,7 @@ export function Infrastructure() {
         </h3>
         <span className="flex items-center gap-1 font-mono text-[10px] 2xl:text-xs text-emerald-600">
           <CircleCheck className="h-3 w-3 2xl:h-3.5 2xl:w-3.5" />
-          All Healthy
+          {assetCount} Target{assetCount > 1 ? 's' : ''} Ready
         </span>
       </div>
 
@@ -108,10 +122,10 @@ export function Infrastructure() {
 
       <div className="shrink-0 flex items-center justify-between border-t border-slate-100 pt-1.5">
         <span className="font-mono text-xs font-medium text-slate-600">
-          Overall Uptime
+          Backend Service
         </span>
         <span className="font-mono text-xs 2xl:text-sm font-bold text-emerald-600 transition-all duration-500">
-          {uptime}
+          Spring Boot 3
         </span>
       </div>
     </section>

@@ -1,62 +1,43 @@
-import { ThreatFlow } from "./threat-flow"
+'use client';
 
-const TOGGLES = ["Flow View", "Traffic", "Risk Heatmap"]
+import { ThreatFlow } from './threat-flow';
+import { Play } from 'lucide-react';
 
-const LEGEND: { label: string; color: string; dashed?: boolean }[] = [
-  { label: "Healthy", color: "#10b981" },
-  { label: "Threat Flow", color: "#e8613c" },
-  { label: "Critical", color: "#f43f5e" },
-  { label: "AI Containment", color: "#10b981", dashed: true },
-]
+interface ThreatOverviewProps {
+  onOpenHITL?: () => void;
+}
 
-export function ThreatOverview() {
+export function ThreatOverview({ onOpenHITL }: ThreatOverviewProps) {
   return (
     <section className="flex h-full min-h-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3.5 2xl:p-4 shadow-sm">
-      <div className="flex items-start justify-between shrink-0 mb-2">
+      {/* Header */}
+      <div className="flex items-center justify-between shrink-0 mb-1">
         <div>
-          <h2 className="font-mono text-base 2xl:text-lg font-semibold text-slate-800">
-            Threat Overview
-          </h2>
-          <p className="mt-0.5 text-xs text-slate-400">Live AI Network</p>
-        </div>
-        <div className="flex items-center gap-1">
-          {TOGGLES.map((t) => {
-            const active = t === "Flow View"
-            return (
-              <button
-                key={t}
-                className={
-                  "rounded-lg px-2.5 py-1 2xl:px-3 2xl:py-1.5 font-mono text-xs 2xl:text-sm transition-colors " +
-                  (active
-                    ? "border border-brand/30 bg-brand-soft font-medium text-brand"
-                    : "text-slate-500 hover:text-slate-700")
-                }
-              >
-                {t}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <ThreatFlow />
-
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-6">
-        {LEGEND.map((l) => (
-          <div key={l.label} className="flex items-center gap-2">
-            <span
-              className="inline-block h-0.5 w-5 rounded-full"
-              style={{
-                backgroundColor: l.color,
-                backgroundImage: l.dashed
-                  ? `repeating-linear-gradient(to right, ${l.color} 0 3px, transparent 3px 6px)`
-                  : undefined,
-              }}
-            />
-            <span className="font-mono text-xs text-slate-500">{l.label}</span>
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono text-base 2xl:text-lg font-semibold text-slate-800">
+              AI Multi-Agent Pipeline
+            </h2>
+            <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+              HITL ENFORCED
+            </span>
           </div>
-        ))}
+          <p className="mt-0.5 text-xs text-slate-400">
+            Sequential Human-in-the-Loop Supervised Workflow · Agents 1–4
+          </p>
+        </div>
+
+        {/* Quick Review / Launch Button */}
+        <button
+          onClick={onOpenHITL}
+          className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-1.5 font-mono text-xs font-semibold text-white shadow-sm hover:bg-brand/90 hover:shadow transition-all"
+        >
+          <Play className="h-3 w-3 fill-current" />
+          Launch / Inspect
+        </button>
       </div>
+
+      {/* 4-Agent Pipeline Visualization */}
+      <ThreatFlow onSelectNode={() => onOpenHITL?.()} />
     </section>
-  )
+  );
 }

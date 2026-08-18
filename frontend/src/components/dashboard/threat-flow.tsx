@@ -1,165 +1,182 @@
-"use client"
+'use client';
 
+import React from 'react';
 import {
-  Globe,
+  Cpu,
+  Layers,
+  Zap,
+  Bot,
+  Bug,
+  ChevronRight,
   ShieldCheck,
-  User,
-  Cloud,
-  LayoutGrid,
-  Lock,
   type LucideIcon,
-} from "lucide-react"
+} from 'lucide-react';
 
-const VW = 900
-const VH = 420
-
-type Node = {
-  id: string
-  icon: LucideIcon
-  label: string
-  sub?: string
-  x: number
-  y: number
-  tone: "neutral" | "healthy" | "alert" | "protected"
-  size?: number
+interface StageData {
+  id: string;
+  step: number;
+  name: string;
+  role: string;
+  tag: string;
+  tagColor: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+  gateLabel?: string;
 }
 
-const NODES: Node[] = [
-  { id: "internet", icon: Globe, label: "Internet", sub: "5.4M events", x: 70, y: 210, tone: "neutral" },
-  { id: "firewall", icon: ShieldCheck, label: "Firewall", sub: "2 Monitors", x: 240, y: 210, tone: "neutral" },
-  { id: "identity", icon: User, label: "Identity", sub: "1.9M events", x: 410, y: 210, tone: "neutral" },
-  { id: "cloud", icon: Cloud, label: "Cloud\nServices", sub: "Healthy", x: 650, y: 110, tone: "healthy", size: 76 },
-  { id: "apps", icon: LayoutGrid, label: "Applications", sub: "Healthy", x: 650, y: 310, tone: "healthy", size: 76 },
-  { id: "critical", icon: Lock, label: "Critical\nAssets", sub: "Protected", x: 830, y: 210, tone: "protected", size: 76 },
-]
+const STAGES: StageData[] = [
+  {
+    id: 'scanners',
+    step: 0,
+    name: 'Scanners',
+    role: 'Nmap · Nuclei · ZAP',
+    tag: 'Ingest',
+    tagColor: 'bg-slate-100 text-slate-600 border-slate-200',
+    icon: Bug,
+    iconBg: 'bg-slate-100',
+    iconColor: 'text-slate-700',
+    gateLabel: 'Sandbox',
+  },
+  {
+    id: 'agent1',
+    step: 1,
+    name: 'Agent 1',
+    role: 'Normalizer',
+    tag: 'Unified',
+    tagColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    icon: Cpu,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    gateLabel: 'Gate 1',
+  },
+  {
+    id: 'agent2',
+    step: 2,
+    name: 'Agent 2',
+    role: 'Noise Reduction',
+    tag: '94% Filter',
+    tagColor: 'bg-orange-50 text-orange-700 border-orange-200',
+    icon: Layers,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-brand',
+    gateLabel: 'Gate 2',
+  },
+  {
+    id: 'agent3',
+    step: 3,
+    name: 'Agent 3',
+    role: 'Threat Intel',
+    tag: 'KEV + EPSS',
+    tagColor: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: Zap,
+    iconBg: 'bg-purple-50',
+    iconColor: 'text-purple-600',
+    gateLabel: 'Gate 3',
+  },
+  {
+    id: 'agent4',
+    step: 4,
+    name: 'Agent 4',
+    role: 'Risk & Ticket',
+    tag: 'Score 94.5',
+    tagColor: 'bg-rose-50 text-rose-700 border-rose-200',
+    icon: Bot,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-600',
+    gateLabel: 'Final Gate',
+  },
+];
 
-const PATHS: { d: string; color: "orange" | "green" }[] = [
-  { d: "M70,210 C 120,180 190,240 240,210 S 350,240 410,210", color: "orange" },
-  { d: "M410,210 C 500,210 560,110 650,110", color: "orange" },
-  { d: "M410,210 C 500,210 560,310 650,310", color: "green" },
-  { d: "M650,110 C 740,110 780,210 830,210", color: "green" },
-  { d: "M650,310 C 740,310 780,210 830,210", color: "green" },
-]
-
-const COLORS = { orange: "#e8613c", green: "#10b981" }
-
-function pct(v: number, total: number) {
-  return `${(v / total) * 100}%`
+interface ThreatFlowProps {
+  onSelectNode?: (nodeId: string) => void;
 }
 
-function NodeCircle({ node }: { node: Node }) {
-  const Icon = node.icon
-  const size = node.size ? Math.min(node.size, 60) : 50
-
-  const toneBorder =
-    node.tone === "alert"
-      ? "border-brand/40 group-hover:border-brand"
-      : node.tone === "healthy" || node.tone === "protected"
-        ? "border-emerald-300 group-hover:border-emerald-500"
-        : "border-slate-200 group-hover:border-slate-400"
-
-  const toneBg =
-    node.tone === "healthy" || node.tone === "protected"
-      ? "bg-emerald-50"
-      : "bg-white"
-
-  const hoverRing =
-    node.tone === "alert"
-      ? "group-hover:ring-4 group-hover:ring-brand/25 group-hover:shadow-[0_0_22px_rgba(232,97,60,0.45)]"
-      : node.tone === "healthy" || node.tone === "protected"
-        ? "group-hover:ring-4 group-hover:ring-emerald-500/25 group-hover:shadow-[0_0_22px_rgba(16,185,129,0.45)]"
-        : "group-hover:ring-4 group-hover:ring-slate-400/25 group-hover:shadow-[0_0_20px_rgba(100,116,139,0.35)]"
-
-  const hoverGlow =
-    node.tone === "alert"
-      ? "bg-brand/35"
-      : node.tone === "healthy" || node.tone === "protected"
-        ? "bg-emerald-400/35"
-        : "bg-slate-400/25"
-
+export function ThreatFlow({ onSelectNode }: ThreatFlowProps) {
   return (
-    <div
-      className="group absolute z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center pointer-events-auto"
-      style={{ left: pct(node.x, VW), top: pct(node.y, VH) }}
-    >
-      {/* Soft ambient glow appearing smoothly only on hover */}
-      <span
-        className={`absolute -z-10 h-20 w-20 rounded-full blur-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${hoverGlow}`}
-      />
+    <div className="relative w-full flex-1 flex flex-col justify-center px-1 2xl:px-3 py-2">
+      {/* Horizontal Stepper Grid */}
+      <div className="grid grid-cols-5 gap-2 2xl:gap-3 items-center">
+        {STAGES.map((stg, idx) => {
+          const Icon = stg.icon;
+          const isLast = idx === STAGES.length - 1;
 
-      <div
-        className={`flex items-center justify-center rounded-full border ${toneBorder} ${toneBg} shadow-sm transition-all duration-300 group-hover:scale-105 ${hoverRing}`}
-        style={{ width: size, height: size }}
-      >
-        <Icon
-          className={`transition-colors duration-200 ${
-            node.tone === "alert"
-              ? "text-brand"
-              : node.tone === "healthy" || node.tone === "protected"
-                ? "text-emerald-600"
-                : "text-slate-500 group-hover:text-slate-800"
-          }`}
-          style={{ width: size * 0.42, height: size * 0.42 }}
-          strokeWidth={1.75}
-        />
+          return (
+            <div key={stg.id} className="relative flex items-center">
+              {/* Stage Card */}
+              <div
+                onClick={() => onSelectNode?.(stg.id)}
+                className="group relative flex-1 cursor-pointer flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-2.5 2xl:p-3 shadow-xs hover:border-brand hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
+                {/* Top header row */}
+                <div className="flex items-center justify-between">
+                  <div
+                    className={`flex h-7 w-7 2xl:h-8 2xl:w-8 items-center justify-center rounded-lg ${stg.iconBg} ${stg.iconColor} transition-transform group-hover:scale-105`}
+                  >
+                    <Icon className="h-3.5 w-3.5 2xl:h-4 2xl:w-4" strokeWidth={2} />
+                  </div>
+                  <span
+                    className={`rounded-md border px-1.5 py-0.5 font-mono text-[9px] 2xl:text-[10px] font-semibold ${stg.tagColor}`}
+                  >
+                    {stg.tag}
+                  </span>
+                </div>
+
+                {/* Body details */}
+                <div className="mt-2 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono text-xs 2xl:text-sm font-bold text-slate-800 truncate group-hover:text-brand transition-colors">
+                      {stg.name}
+                    </span>
+                    {stg.step > 0 && (
+                      <span className="font-mono text-[9px] text-slate-400">
+                        S{stg.step}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-mono text-[10px] 2xl:text-[11px] text-slate-500 truncate mt-0.5">
+                    {stg.role}
+                  </p>
+                </div>
+
+                {/* Bottom Human Review Gate Indicator */}
+                <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                  <span className="font-mono text-[9px] text-amber-700 font-semibold flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    {stg.gateLabel}
+                  </span>
+                  <span className="font-mono text-[9px] text-slate-400 group-hover:text-slate-700">
+                    Review →
+                  </span>
+                </div>
+              </div>
+
+              {/* Connecting arrow between cards */}
+              {!isLast && (
+                <div className="hidden sm:flex -mr-2 z-10 items-center justify-center pl-1">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200 shadow-2xs">
+                    <ChevronRight className="h-3 w-3" />
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-1 whitespace-pre text-center transition-transform duration-200 group-hover:translate-y-0.5">
-        <p className="text-[11px] 2xl:text-[12px] font-medium leading-tight text-slate-700">
-          {node.label}
-        </p>
-        {node.sub && (
-          <p
-            className={
-              "font-mono text-[9px] 2xl:text-[10px] " +
-              (node.tone === "healthy" || node.tone === "protected"
-                ? "text-emerald-500"
-                : "text-slate-400")
-            }
-          >
-            {node.sub}
-          </p>
-        )}
+
+      {/* Pipeline Summary Sub-bar */}
+      <div className="mt-2.5 flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/80 px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-mono text-[11px] text-slate-600 font-medium">
+            Supervised DAG: Agent 1 ➔ Agent 2 ➔ Agent 3 ➔ Agent 4 ➔ Human Approval
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          <span>GitHub Dispatch on Stage 4 Approval</span>
+        </div>
       </div>
     </div>
-  )
-}
-
-export function ThreatFlow() {
-  return (
-    <div className="relative flex-1 min-h-[160px] w-full my-auto flex items-center justify-center">
-      <svg
-        viewBox={`0 0 ${VW} ${VH}`}
-        preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full overflow-visible"
-      >
-        {PATHS.map((p, i) => (
-          <g key={i}>
-            <path
-              d={p.d}
-              fill="none"
-              stroke={COLORS[p.color]}
-              strokeOpacity={0.18}
-              strokeWidth={2}
-            />
-            <path
-              d={p.d}
-              fill="none"
-              stroke={COLORS[p.color]}
-              strokeWidth={2}
-              strokeLinecap="round"
-              className="flow-line"
-            />
-          </g>
-        ))}
-        {/* junction dots */}
-        <circle cx="410" cy="210" r="5" fill={COLORS.orange} />
-        <circle cx="650" cy="110" r="4" fill={COLORS.green} />
-        <circle cx="650" cy="310" r="4" fill={COLORS.green} />
-      </svg>
-
-      {NODES.map((n) => (
-        <NodeCircle key={n.id} node={n} />
-      ))}
-    </div>
-  )
+  );
 }
