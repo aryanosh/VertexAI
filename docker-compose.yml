@@ -96,6 +96,27 @@ services:
     networks:
       - vertexai-network
 
+  # ============================================================================
+  # 5. Scanner Sandbox (SAST, Dependency Scanning, Secret Scanning)
+  # ============================================================================
+  scanner-sandbox:
+    build:
+      context: ./scanner-sandbox
+      dockerfile: Dockerfile
+    container_name: vertexai-scanner
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    privileged: true
+    environment:
+      SCAN_TIMEOUT_SECONDS: ${SCAN_TIMEOUT_SECONDS:-300}
+      BACKEND_URL: http://backend:8080
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - vertexai-network
+
 volumes:
   postgres_data:
     driver: local
