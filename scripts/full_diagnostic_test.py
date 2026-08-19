@@ -13,6 +13,7 @@ Tests:
 """
 
 import sys
+import os
 import json
 import time
 import httpx
@@ -23,9 +24,9 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-BACKEND_URL = "http://localhost:8080"
-AGENTS_URL = "http://localhost:8000"
-FRONTEND_URL = "http://localhost:3000"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
+AGENTS_URL = os.getenv("AGENTS_URL", "http://localhost:8000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 results = {
     "passed": [],
