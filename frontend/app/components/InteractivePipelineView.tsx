@@ -161,36 +161,10 @@ export function InteractivePipelineView() {
   const [ticketUrl, setTicketUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [scanId, setScanId] = useState<string | null>(null);
-  const tokenRef = useRef<string | null>(null);
 
-  // Authenticate against the backend (ANALYST role may start scans and control HITL checkpoints)
-  const getToken = useCallback(async (): Promise<string | null> => {
-    if (tokenRef.current) return tokenRef.current;
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "analyst", password: "analyst123" }),
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      tokenRef.current = data.token || null;
-      return tokenRef.current;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
-    const token = await getToken();
-    return fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-  }, [getToken]);
+  // Use the signed-in user's session; backend authorization remains authoritative
+  const { apiFetch, role } = useAuth();
+  const canOperate = role === "ADMIN" || role === "ANALYST";
 
   const refreshScanState = useCallback(async (id: string) => {
     try {
