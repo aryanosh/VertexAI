@@ -216,5 +216,6 @@ export default function DashboardPage() {
         </aside>
       </div>
     </div>
+    </RequireAuth>
   );
 }
