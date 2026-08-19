@@ -129,5 +129,5 @@ VALUES
   ('22222222-2222-2222-2222-222222222222', 'b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e', 77.0, 'P1_HIGH', 'Composite Risk Score: 77.0/100.0 [P1_HIGH]. High exploit probability on production web server.'),
   ('33333333-3333-3333-3333-333333333333', 'c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f', 88.0, 'P0_CRITICAL', 'Composite Risk Score: 88.0/100.0 [P0_CRITICAL]. Critical remote execution vulnerability on production infrastructure.'),
   ('44444444-4444-4444-4444-444444444444', 'd4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a', 52.0, 'P2_MEDIUM', 'Composite Risk Score: 52.0/100.0 [P2_MEDIUM]. Medium risk vulnerability with moderate exploit likelihood.')
-ON CONFLICT (finding_id) DO NOTHING;
+ON CONFLICT (score_id) DO NOTHING;
 
