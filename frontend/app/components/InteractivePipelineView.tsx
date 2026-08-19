@@ -160,18 +160,55 @@ export function InteractivePipelineView() {
   const [controlling, setControlling] = useState(false);
   const [ticketUrl, setTicketUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const currentScanId = "scan-demo-0001";
+  const [scanId, setScanId] = useState<string | null>(null);
+  const tokenRef = useRef<string | null>(null);
 
-  // Initial Fetch
-  useEffect(() => {
-    fetch(`${API_BASE}/api/scans/${currentScanId}`)
-      .then((r) => r.json())
-      .then((d) => setScanState(d))
-      .catch(() => {});
-  }, [currentScanId]);
+  // Authenticate against the backend (ANALYST role may start scans and control HITL checkpoints)
+  const getToken = useCallback(async (): Promise<string | null> => {
+    if (tokenRef.current) return tokenRef.current;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "analyst", password: "analyst123" }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      tokenRef.current = data.token || null;
+      return tokenRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
 
-  // WebSocket Live Updates
+  const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
+    const token = await getToken();
+    return fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  }, [getToken]);
+
+  const refreshScanState = useCallback(async (id: string) => {
+    try {
+      const res = await apiFetch(`/api/scans/${id}`);
+      if (res.ok) setScanState(await res.json());
+    } catch {}
+  }, [apiFetch]);
+
+  // Poll scan status (fallback when the WebSocket is unavailable)
   useEffect(() => {
+    if (!scanId) return;
+    const interval = setInterval(() => refreshScanState(scanId), 3000);
+    return () => clearInterval(interval);
+  }, [scanId, refreshScanState]);
+
+  // WebSocket Live Updates (raw JSON broadcast from backend /ws/pipeline)
+  useEffect(() => {
+    if (!scanId) return;
     let ws: WebSocket;
     try {
       ws = new WebSocket(WS_URL);
@@ -179,10 +216,7 @@ export function InteractivePipelineView() {
         try {
           const event: PipelineEvent = JSON.parse(e.data);
           if (event) {
-            fetch(`${API_BASE}/api/scans/${currentScanId}`)
-              .then((r) => r.json())
-              .then((d) => setScanState(d))
-              .catch(() => {});
+            refreshScanState(scanId);
           }
         } catch {}
       };
@@ -191,37 +225,67 @@ export function InteractivePipelineView() {
     return () => {
       try { ws?.close(); } catch {}
     };
-  }, [currentScanId]);
+  }, [scanId, refreshScanState]);
 
-  // Handle Dataset Upload
+  // Ensure a registered asset exists (authorization gate requires one before scanning)
+  const ensureAsset = useCallback(async (): Promise<string | null> => {
+    try {
+      const listRes = await apiFetch(`/api/assets`);
+      if (listRes.ok) {
+        const assets = await listRes.json();
+        if (Array.isArray(assets) && assets.length > 0) return assets[0].asset_id;
+      }
+      const createRes = await apiFetch(`/api/assets`, {
+        method: "POST",
+        body: JSON.stringify({
+          hostname: "demo-target.vertexai.local",
+          ip_address: "10.0.1.10",
+          environment: "PRODUCTION",
+          criticality_rating: 5,
+          owner_email: "secops@vertexai.local",
+          is_authorized: true,
+        }),
+      });
+      if (createRes.ok) {
+        const asset = await createRes.json();
+        return asset.asset_id;
+      }
+    } catch {}
+    return null;
+  }, [apiFetch]);
+
+  // Handle Dataset Upload -> starts the real backend HITL pipeline
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     setUploadSuccess(null);
+    setTicketUrl(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/scans`, {
+      const assetId = await ensureAsset();
+      if (!assetId) throw new Error("no-asset");
+
+      const response = await apiFetch(`/api/scans`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          asset_id: "asset-demo-0001",
-          dataset_filename: file.name,
-          scanners_used: file.name.includes("nmap") ? "nmap" :
-                         file.name.includes("zap") ? "zap" :
-                         file.name.includes("nuclei") ? "nuclei" : "openvas",
+          asset_id: assetId,
+          scanners: ["nmap", "zap", "nuclei", "openvas"],
         }),
       });
 
       if (response.ok) {
+        const scan = await response.json();
+        setScanId(scan.scan_id);
+        setScanState(scan);
         setUploadSuccess(`Uploaded ${file.name} successfully. Pipeline initiated.`);
         setSelectedStageId("scan");
-        const updated = await fetch(`${API_BASE}/api/scans/${currentScanId}`).then(r => r.json());
-        setScanState(updated);
+      } else {
+        setUploadSuccess(`Backend rejected scan request (HTTP ${response.status}).`);
       }
     } catch {
-      setUploadSuccess(`Uploaded ${file.name} (Local mode).`);
+      setUploadSuccess(`Uploaded ${file.name} (Local mode — backend unreachable).`);
     } finally {
       setUploading(false);
       setTimeout(() => setUploadSuccess(null), 4000);
@@ -230,38 +294,77 @@ export function InteractivePipelineView() {
 
   // HITL Continue/Stop Controls
   const sendControl = useCallback(async (action: "CONTINUE" | "STOP") => {
+    if (!scanId) return;
     setControlling(true);
     try {
-      const res = await fetch(`${API_BASE}/api/scans/${currentScanId}/control`, {
+      const res = await apiFetch(`/api/scans/${scanId}/control`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      const data = await res.json();
-      setScanState((prev) => prev ? { ...prev, status: data.status } : prev);
+      if (res.ok) setScanState(await res.json());
     } catch {}
     setControlling(false);
-  }, [currentScanId]);
+  }, [scanId, apiFetch]);
 
-  // HITL Final Approval / Reject
+  // HITL Final Approval / Reject — GitHub ticket is dispatched ONLY on explicit approval
   const sendApproval = useCallback(async (approved: boolean) => {
+    if (!scanId) return;
     setControlling(true);
     try {
-      const res = await fetch(`${API_BASE}/api/vulnerabilities/a1b2c3d4-0001-0000-0000-000000000001/ticket`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approved }),
-      });
-      if (approved) {
-        const data = await res.json();
-        setTicketUrl(data.ticket_url);
-        setScanState((prev) => prev ? { ...prev, status: "COMPLETED" } : prev);
-      } else {
-        setScanState((prev) => prev ? { ...prev, status: "STOPPED" } : prev);
+      if (!approved) {
+        const res = await apiFetch(`/api/scans/${scanId}/control`, {
+          method: "POST",
+          body: JSON.stringify({ action: "STOP" }),
+        });
+        if (res.ok) setScanState(await res.json());
+        return;
       }
-    } catch {}
-    setControlling(false);
-  }, []);
+
+      // Mark the pipeline COMPLETED at the final checkpoint
+      const completeRes = await apiFetch(`/api/scans/${scanId}/control`, {
+        method: "POST",
+        body: JSON.stringify({ action: "CONTINUE" }),
+      });
+      if (completeRes.ok) setScanState(await completeRes.json());
+
+      // Dispatch the GitHub ticket for the top prioritized canonical finding
+      const vulnsRes = await apiFetch(`/api/vulnerabilities`);
+      if (vulnsRes.ok) {
+        const vulns = await vulnsRes.json();
+        if (Array.isArray(vulns) && vulns.length > 0) {
+          const findingId = vulns[0].finding_id;
+          const res = await apiFetch(`/api/vulnerabilities/${findingId}/ticket`, {
+            method: "POST",
+            body: JSON.stringify({ approved: true }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setTicketUrl(data.ticket_url);
+          }
+        }
+      }
+    } catch {
+    } finally {
+      setControlling(false);
+    }
+  }, [scanId, apiFetch]);
+
+  // Map backend numeric current_stage + status to a pipeline node key
+  const deriveStageKey = (state: ScanState | null): string => {
+    if (!state) return "";
+    const raw = state.current_stage;
+    const stageNum = typeof raw === "number" ? raw : parseInt(String(raw), 10) || 0;
+    if (state.status === "COMPLETED") return "EXTERNAL_TICKET";
+    if (state.status === "WAITING_FOR_HUMAN") {
+      return stageNum >= 4 ? "FINAL_APPROVAL" : `HUMAN_REVIEW_${Math.max(stageNum, 1)}`;
+    }
+    if (state.status === "RUNNING") return `AGENT_${Math.min(stageNum + 1, 4)}`;
+    if (state.status === "STOPPED" || state.status === "FAILED") {
+      if (stageNum >= 4) return "FINAL_APPROVAL";
+      return stageNum >= 1 ? `HUMAN_REVIEW_${stageNum}` : "SCAN";
+    }
+    return "SCAN";
+  };
 
   const getStageStatus = (stage: StageDefinition): PipelineStatus => {
     if (!scanState) return "PENDING";
