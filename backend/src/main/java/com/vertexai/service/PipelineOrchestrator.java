@@ -1,6 +1,8 @@
 package com.vertexai.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vertexai.agent.AgentClient;
+import com.vertexai.config.PipelineWebSocketHandler;
 import com.vertexai.dto.ScanStatusResponse;
 import com.vertexai.entity.*;
 import com.vertexai.exception.BadRequestException;
@@ -27,6 +29,8 @@ public class PipelineOrchestrator {
     private final VulnerabilityIntelligenceRepository vulnerabilityIntelligenceRepository;
     private final RiskScoreRepository riskScoreRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final PipelineWebSocketHandler pipelineWebSocketHandler;
+    private final ObjectMapper objectMapper;
 
     // In-memory HITL pipeline state cache (NO extra DB tables per architecture_plan.md §8)
     private final Map<UUID, PipelineState> pipelineCache = new ConcurrentHashMap<>();
@@ -44,6 +48,11 @@ public class PipelineOrchestrator {
         public Map<String, Object> agent4Output;
     }
 
+    /**
+     * Starts the HITL pipeline asynchronously (called via Spring proxy from ScanService,
+     * so @Async applies and POST /api/scans returns immediately with status RUNNING).
+     */
+    @Async
     public void startPipeline(UUID scanId, Asset asset, List<String> scanners) {
         log.info("Starting HITL Pipeline for scan: {}", scanId);
 
@@ -54,11 +63,9 @@ public class PipelineOrchestrator {
         state.status = "RUNNING";
         pipelineCache.put(scanId, state);
 
-        // Execute Agent 1 asynchronously
         executeStage1(scanId);
     }
 
-    @Async
     public void executeStage1(UUID scanId) {
         PipelineState state = pipelineCache.get(scanId);
         if (state == null || "STOPPED".equals(state.status)) return;
@@ -72,6 +79,7 @@ public class PipelineOrchestrator {
             rawReportsPayload.put("scanners", state.scanners);
 
             List<Map<String, Object>> unifiedFindings = agentClient.parseReports(rawReportsPayload);
+            if ("STOPPED".equals(state.status)) return; // STOP arrived while agent was running
             state.agent1Output = unifiedFindings;
             state.currentStageOutput = unifiedFindings;
             state.currentStage = 1;
@@ -96,6 +104,7 @@ public class PipelineOrchestrator {
             updateScanJobStatus(scanId, "RUNNING");
 
             List<Map<String, Object>> canonicalFindings = agentClient.reduceNoise(state.agent1Output);
+            if ("STOPPED".equals(state.status)) return; // STOP arrived while agent was running
             state.agent2Output = canonicalFindings;
             state.currentStageOutput = canonicalFindings;
             state.currentStage = 2;
@@ -123,6 +132,7 @@ public class PipelineOrchestrator {
             updateScanJobStatus(scanId, "RUNNING");
 
             List<Map<String, Object>> enrichedFindings = agentClient.enrichThreats(state.agent2Output);
+            if ("STOPPED".equals(state.status)) return; // STOP arrived while agent was running
             state.agent3Output = enrichedFindings;
             state.currentStageOutput = enrichedFindings;
             state.currentStage = 3;
@@ -154,6 +164,7 @@ public class PipelineOrchestrator {
             scoringPayload.put("findings", state.agent3Output != null ? state.agent3Output : state.agent2Output);
 
             Map<String, Object> scoredResult = agentClient.scoreAndPrepareTicket(scoringPayload);
+            if ("STOPPED".equals(state.status)) return; // STOP arrived while agent was running
             state.agent4Output = scoredResult;
             state.currentStageOutput = scoredResult;
             state.currentStage = 4;
@@ -188,6 +199,9 @@ public class PipelineOrchestrator {
         if ("CONTINUE".equalsIgnoreCase(action)) {
             if (state == null) {
                 throw new BadRequestException("No active pipeline state found in memory for scan: " + scanId);
+            }
+            if (!"WAITING_FOR_HUMAN".equals(state.status)) {
+                throw new BadRequestException("Pipeline is not waiting at a human checkpoint (current status: " + state.status + ")");
             }
 
             int currentStage = state.currentStage;
@@ -272,17 +286,38 @@ public class PipelineOrchestrator {
         String priority = (String) scoredResult.getOrDefault("priority_level", "P2_MEDIUM");
         String rationale = (String) scoredResult.getOrDefault("explainable_rationale", "Calculated risk score");
 
+        // Agent 4 returns per-finding scores in scored_findings; prefer those when present
+        Object scoredFindingsObj = scoredResult.get("scored_findings");
+        Map<String, Map<String, Object>> scoredByHash = new HashMap<>();
+        if (scoredFindingsObj instanceof List<?> scoredList) {
+            for (Object o : scoredList) {
+                if (o instanceof Map<?, ?> m && m.get("fingerprint_hash") instanceof String h) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> sm = (Map<String, Object>) m;
+                    scoredByHash.put(h, sm);
+                }
+            }
+        }
+
         for (Map<String, Object> f : findings) {
             String hash = (String) f.get("fingerprint_hash");
             if (hash == null) continue;
+
+            Map<String, Object> scored = scoredByHash.get(hash);
+            final double findingScore = scored != null && scored.get("composite_risk_score") instanceof Number n
+                    ? n.doubleValue() : compositeScore;
+            final String findingPriority = scored != null && scored.get("priority_level") instanceof String p
+                    ? p : priority;
+            final String findingRationale = scored != null && scored.get("explainable_rationale") instanceof String r
+                    ? r : rationale;
 
             canonicalVulnerabilityRepository.findByFingerprintHash(hash).ifPresent(vuln -> {
                 if (riskScoreRepository.findByFinding_FindingId(vuln.getFindingId()).isEmpty()) {
                     RiskScore riskScore = RiskScore.builder()
                             .finding(vuln)
-                            .compositeRiskScore(compositeScore)
-                            .priorityLevel(priority)
-                            .explainableRationale(rationale)
+                            .compositeRiskScore(findingScore)
+                            .priorityLevel(findingPriority)
+                            .explainableRationale(findingRationale)
                             .calculatedAt(LocalDateTime.now())
                             .build();
                     riskScoreRepository.save(riskScore);
@@ -329,7 +364,13 @@ public class PipelineOrchestrator {
             messagingTemplate.convertAndSend("/topic/pipeline", (Object) message);
             messagingTemplate.convertAndSend("/topic/scans/" + scanId, (Object) message);
         } catch (Exception e) {
-            log.warn("WebSocket broadcast failed: {}", e.getMessage());
+            log.warn("STOMP broadcast failed: {}", e.getMessage());
+        }
+
+        try {
+            pipelineWebSocketHandler.broadcast(objectMapper.writeValueAsString(message));
+        } catch (Exception e) {
+            log.warn("Raw WebSocket broadcast failed: {}", e.getMessage());
         }
     }
 
