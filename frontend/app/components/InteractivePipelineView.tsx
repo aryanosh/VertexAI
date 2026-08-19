@@ -821,6 +821,11 @@ export function InteractivePipelineView() {
               ⚠️ Pipeline paused at this stage. Human analyst approval required to advance.
             </div>
 
+            {!canOperate ? (
+              <div style={{ color: "var(--text-muted)", fontSize: 11, fontWeight: 600 }}>
+                🔒 {READ_ONLY_MESSAGE}
+              </div>
+            ) : (
             <div className="flex gap-2">
               {selectedStage.isFinalApproval ? (
                 <>
@@ -862,6 +867,7 @@ export function InteractivePipelineView() {
                 </>
               )}
             </div>
+            )}
           </div>
         )}
       </div>
