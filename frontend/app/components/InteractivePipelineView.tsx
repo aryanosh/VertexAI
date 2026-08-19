@@ -417,12 +417,14 @@ export function InteractivePipelineView() {
             accept=".xml,.json,.jsonl,.txt"
           />
           <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            onClick={() => canOperate && fileInputRef.current?.click()}
+            disabled={uploading || !canOperate}
+            title={!canOperate ? READ_ONLY_MESSAGE : "Upload a scanner report to start a scan"}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 6,
+              opacity: !canOperate ? 0.45 : 1,
               background: "linear-gradient(135deg, rgba(240,78,31,0.15) 0%, rgba(240,78,31,0.05) 100%)",
               border: "1px solid rgba(240,78,31,0.3)",
               color: "#f04e1f",
