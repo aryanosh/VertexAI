@@ -267,11 +267,22 @@ export function InteractivePipelineView() {
       const assetId = await ensureAsset();
       if (!assetId) throw new Error("no-asset");
 
+      // Read the uploaded scanner report and pass it through the existing pipeline
+      const content = await file.text();
+      const lower = file.name.toLowerCase();
+      const scannerType = lower.includes("nmap") ? "nmap" :
+                          lower.includes("zap") ? "zap" :
+                          lower.includes("nuclei") ? "nuclei" :
+                          lower.includes("openvas") ? "openvas" :
+                          lower.endsWith(".jsonl") ? "nuclei" :
+                          lower.endsWith(".json") ? "zap" : "openvas";
+
       const response = await apiFetch(`/api/scans`, {
         method: "POST",
         body: JSON.stringify({
           asset_id: assetId,
-          scanners: ["nmap", "zap", "nuclei", "openvas"],
+          scanners: [scannerType],
+          reports: [{ scanner_type: scannerType, content }],
         }),
       });
 

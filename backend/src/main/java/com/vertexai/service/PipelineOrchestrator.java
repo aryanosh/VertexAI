@@ -40,6 +40,7 @@ public class PipelineOrchestrator {
         public UUID scanId;
         public Asset asset;
         public List<String> scanners;
+        public List<ScanRequest.ReportEntry> reports;
         public int currentStage = 0; // 0=Not started, 1=Parsed, 2=Deduplicated, 3=Enriched, 4=Scored
         public String status = "PENDING";
         public Object currentStageOutput;
@@ -54,13 +55,14 @@ public class PipelineOrchestrator {
      * so @Async applies and POST /api/scans returns immediately with status RUNNING).
      */
     @Async
-    public void startPipeline(UUID scanId, Asset asset, List<String> scanners) {
+    public void startPipeline(UUID scanId, Asset asset, List<String> scanners, List<ScanRequest.ReportEntry> reports) {
         log.info("Starting HITL Pipeline for scan: {}", scanId);
 
         PipelineState state = new PipelineState();
         state.scanId = scanId;
         state.asset = asset;
         state.scanners = scanners;
+        state.reports = reports;
         state.status = "RUNNING";
         pipelineCache.put(scanId, state);
 
@@ -78,6 +80,10 @@ public class PipelineOrchestrator {
             Map<String, Object> rawReportsPayload = new HashMap<>();
             rawReportsPayload.put("target_host", state.asset.getHostname());
             rawReportsPayload.put("scanners", state.scanners);
+            if (state.reports != null && !state.reports.isEmpty()) {
+                // Forward analyst-uploaded raw scanner reports to Agent 1
+                rawReportsPayload.put("reports", state.reports);
+            }
 
             List<Map<String, Object>> unifiedFindings = agentClient.parseReports(rawReportsPayload);
             if ("STOPPED".equals(state.status)) return; // STOP arrived while agent was running
