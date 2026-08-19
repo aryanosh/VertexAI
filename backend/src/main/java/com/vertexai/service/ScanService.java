@@ -57,7 +57,7 @@ public class ScanService {
         log.info("ScanJob created with ID: {} and status: RUNNING", savedJob.getScanId());
 
         // Trigger the asynchronous Human-in-the-Loop AI pipeline
-        pipelineOrchestrator.startPipeline(savedJob.getScanId(), asset, request.getScanners());
+        pipelineOrchestrator.startPipeline(savedJob.getScanId(), asset, request.getScanners(), request.getReports());
 
         return getScanStatus(savedJob.getScanId());
     }

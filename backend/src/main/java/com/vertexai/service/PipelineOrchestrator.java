@@ -3,6 +3,7 @@ package com.vertexai.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vertexai.agent.AgentClient;
 import com.vertexai.config.PipelineWebSocketHandler;
+import com.vertexai.dto.ScanRequest;
 import com.vertexai.dto.ScanStatusResponse;
 import com.vertexai.entity.*;
 import com.vertexai.exception.BadRequestException;
