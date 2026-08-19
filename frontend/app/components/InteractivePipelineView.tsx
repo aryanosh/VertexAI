@@ -806,7 +806,19 @@ export function InteractivePipelineView() {
                 <div>
                   <div style={{ color: "var(--text-muted)", fontSize: 10 }}>GitHub Integration</div>
                   <div style={{ color: ticketUrl ? "#22c55e" : "var(--text-primary)", fontSize: 12, fontWeight: 600 }}>
-                    {ticketUrl ? `Ticket dispatched: ${ticketUrl}` : "Gated by Final Human Approval"}
+                    {ticketUrl ? (
+                      <>
+                        Ticket dispatched:{" "}
+                        <a
+                          href={ticketUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "#22c55e", textDecoration: "underline" }}
+                        >
+                          {ticketUrl}
+                        </a>
+                      </>
+                    ) : "Gated by Final Human Approval"}
                   </div>
                 </div>
               )}
