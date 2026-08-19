@@ -134,7 +134,8 @@ export const PIPELINE_STAGES: StageDefinition[] = [
 interface ScanState {
   scan_id: string;
   status: PipelineStatus;
-  current_stage: string;
+  // Backend reports the last COMPLETED agent stage as a number (0-4)
+  current_stage: number | string;
   current_agent?: number;
   scanners_used?: string;
   started_at?: string;
