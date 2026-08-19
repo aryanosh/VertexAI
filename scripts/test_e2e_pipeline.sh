@@ -74,12 +74,28 @@ echo ""
 echo "--- STAGE 2: Registering Asset & Triggering Scan Pipeline ---"
 ASSET_PAYLOAD='{
   "hostname": "prod-enclave-01.vertexai.local",
-  "ipAddress": "10.0.1.10",
+  "ip_address": "10.0.1.10",
   "environment": "PRODUCTION",
-  "criticalityRating": 5,
-  "ownerEmail": "secops@vertexai.local",
-  "isAuthorized": true
+  "criticality_rating": 5,
+  "owner_email": "secops@vertexai.local",
+  "is_authorized": true
 }'
+
+# Poll a scan until it reaches WAITING_FOR_HUMAN (pipeline stages run asynchronously)
+wait_for_checkpoint() {
+  local scan_id="$1"
+  local retries=30
+  local status=""
+  while [ $retries -gt 0 ]; do
+    status=$(curl -s -X GET "${BACKEND_URL}/api/scans/${scan_id}" -H "${AUTH_HEADER}" | grep -o '"status":"[^"]*' | cut -d'"' -f4 || echo "")
+    if [ "${status}" = "WAITING_FOR_HUMAN" ] || [ "${status}" = "COMPLETED" ] || [ "${status}" = "FAILED" ] || [ "${status}" = "STOPPED" ]; then
+      break
+    fi
+    sleep 2
+    retries=$((retries - 1))
+  done
+  echo "${status}"
+}
 
 if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
   ASSET_RESP=$(curl -s -X POST "${BACKEND_URL}/api/assets" \
@@ -92,12 +108,15 @@ if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
     ASSET_ID=$(curl -s -X GET "${BACKEND_URL}/api/assets" -H "${AUTH_HEADER}" | grep -o '"asset_id":"[^"]*' | head -n 1 | cut -d'"' -f4 || echo "a1b2c3d4-e5f6-4a5b-8c9d-0123456789ab")
   fi
 
-  SCAN_PAYLOAD="{\"assetId\":\"${ASSET_ID}\",\"scanners\":[\"nmap\",\"zap\",\"nuclei\",\"openvas\"]}"
+  SCAN_PAYLOAD="{\"asset_id\":\"${ASSET_ID}\",\"scanners\":[\"nmap\",\"zap\",\"nuclei\",\"openvas\"]}"
   SCAN_RESP=$(curl -s -X POST "${BACKEND_URL}/api/scans" \
     -H "Content-Type: application/json" \
     -H "${AUTH_HEADER}" \
     -d "${SCAN_PAYLOAD}")
   SCAN_ID=$(echo "${SCAN_RESP}" | grep -o '"scan_id":"[^"]*' | cut -d'"' -f4 || echo "scan-test-001")
+  echo "⏳ Waiting for Agent 1 to reach the Human Review 1 checkpoint..."
+  CP_STATUS=$(wait_for_checkpoint "${SCAN_ID}")
+  echo "Checkpoint status: ${CP_STATUS}"
 else
   SCAN_ID="scan-test-001"
   SCAN_RESP='{"scan_id":"scan-test-001","status":"WAITING_FOR_HUMAN","current_stage":"AGENT_1_PARSED","raw_findings_count":2500}'

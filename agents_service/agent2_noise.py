@@ -130,12 +130,16 @@ async def reduce_noise(request: Agent2Request):
         avg_port = group['port_is_open'].mean()
         avg_fp_rate = group['historical_plugin_fp_rate'].mean()
         
+        false_positive_prob = None
         if model is not None:
-            # Predict using model (assumes model can handle this specific numpy array shape)
-            import numpy as np
-            features = np.array([[avg_confidence, avg_has_cve_id, avg_http, avg_port, avg_fp_rate]])
-            false_positive_prob = float(model.predict_proba(features)[0][1]) # Assuming class 1 is FP
-        else:
+            try:
+                import numpy as np
+                features = np.array([[avg_confidence, avg_has_cve_id, avg_http, avg_port, avg_fp_rate]])
+                false_positive_prob = float(model.predict_proba(features)[0][1])  # Class 1 is FP
+            except Exception as e:
+                print(f"WARNING: XGBoost inference failed ({e}); using heuristic FP scoring.")
+                false_positive_prob = None
+        if false_positive_prob is None:
             # Fallback heuristic
             false_positive_prob = heuristic_fp_prob(
                 round(avg_confidence),
