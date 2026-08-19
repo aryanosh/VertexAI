@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers("/actuator/health", "/swagger-ui/**", "/v3/api-docs/**", "/ws/pipeline/**").permitAll()
+                        .requestMatchers("/actuator/health", "/swagger-ui/**", "/v3/api-docs/**", "/ws/**").permitAll()
 
                         // Role-based restrictions per architecture_plan.md §11
                         .requestMatchers(HttpMethod.POST, "/api/vulnerabilities/*/accept-risk").hasRole("ADMIN")

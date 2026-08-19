@@ -19,8 +19,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Register standard STOMP endpoint at /ws/pipeline
-        registry.addEndpoint("/ws/pipeline")
+        // STOMP endpoint (SockJS) moved to /ws/stomp; the raw JSON WebSocket used by
+        // the Next.js dashboard is served at /ws/pipeline (see RawWebSocketConfig).
+        registry.addEndpoint("/ws/stomp")
                 .setAllowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
                 .withSockJS();
     }

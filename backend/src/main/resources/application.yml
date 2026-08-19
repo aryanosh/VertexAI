@@ -14,6 +14,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   sql:
     init:
       mode: always
@@ -22,7 +24,7 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:vertexai-jwt-secret-key-for-development-only-change-in-production}
-    expiration-ms: 86400000
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   python-agents:
     base-url: ${PYTHON_AGENT_URL:${AGENTS_SERVICE_URL:http://localhost:8000}}
   github:

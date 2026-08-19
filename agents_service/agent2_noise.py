@@ -58,9 +58,15 @@ class Agent2Response(BaseModel):
 def load_model():
     model_path = os.path.join(os.path.dirname(__file__), "models", "xgboost_fp.json")
     if os.path.exists(model_path):
-        model = xgb.XGBClassifier()
-        model.load_model(model_path)
-        return model
+        try:
+            model = xgb.XGBClassifier()
+            model.load_model(model_path)
+            return model
+        except Exception as e:
+            # Model file may have been produced by a newer XGBoost version than the
+            # one installed. Never crash the pipeline: fall back to the heuristic.
+            print(f"WARNING: Failed to load XGBoost model ({e}); using heuristic FP scoring.")
+            return None
     return None
 
 def heuristic_fp_prob(scanner_confidence, has_cve_id, http_response_code, port_is_open, fp_rate):

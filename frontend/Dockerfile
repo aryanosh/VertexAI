@@ -15,6 +15,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# NEXT_PUBLIC_* variables are inlined into the client bundle at BUILD time,
+# so they must be provided as build args (see docker-compose.yml).
+ARG NEXT_PUBLIC_API_URL=http://localhost:8080
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:8080/ws/pipeline
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
