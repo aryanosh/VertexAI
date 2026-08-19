@@ -4,103 +4,12 @@ import { InteractivePipelineView } from "./components/InteractivePipelineView";
 import { MetricsGauge } from "./components/MetricsGauge";
 import { LiveTimelineStream } from "./components/LiveTimelineStream";
 import { PrioritizedVulnerabilityTable } from "./components/PrioritizedVulnerabilityTable";
-import { useTheme } from "./components/ThemeProvider";
+import { RequireAuth } from "./components/AuthProvider";
 import { MOCK_DASHBOARD } from "./mocks/data";
-
-const TABS = ["Overview", "Key Alerts", "Insights", "Executions"];
 
 type ViewTab = "Flow View" | "Traffic" | "Risk Heatmap";
 
-function TopNav({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (t: string) => void }) {
-  const { theme, toggleTheme } = useTheme();
-  const isDark = theme === "dark";
-  return (
-    <nav style={{
-      height: 56,
-      background: "var(--bg-card)",
-      borderBottom: "1px solid var(--border)",
-      display: "flex",
-      alignItems: "center",
-      padding: "0 24px",
-      gap: 0,
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 100,
-    }}>
-      {/* Logo */}
-      <div className="flex items-center gap-2.5" style={{ marginRight: 40 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 8,
-          background: "linear-gradient(135deg, #f04e1f, #d93c10)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 16, boxShadow: "0 0 12px rgba(240,78,31,0.4)",
-        }}>⬡</div>
-        <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>VertexAI</span>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: "6px 16px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: activeTab === tab ? 600 : 400,
-              color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)",
-              background: activeTab === tab ? "rgba(240,78,31,0.15)" : "transparent",
-              transition: "all 0.2s",
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Right side */}
-      <div className="flex items-center gap-3 ml-auto">
-        <div className="flex items-center gap-1.5">
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
-          <span style={{ color: "var(--text-secondary)", fontSize: 12 }}>Production · US-East</span>
-          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>▾</span>
-        </div>
-        {/* Theme toggle */}
-        <button
-          id="theme-toggle"
-          onClick={toggleTheme}
-          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          style={{
-            background: "var(--surface-2)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            padding: "6px 10px",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            fontSize: 15,
-            lineHeight: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
-        >
-          {isDark ? "☀️" : "🌙"}
-          <span style={{ fontSize: 11, fontWeight: 500 }}>{isDark ? "Light" : "Dark"}</span>
-        </button>
-        <button style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", color: "var(--text-secondary)", cursor: "pointer", fontSize: 14 }}>🔔</button>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>AK</div>
-      </div>
-    </nav>
-  );
-}
-
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState("Overview");
   const [viewTab, setViewTab] = useState<ViewTab>("Flow View");
   const [mswReady, setMswReady] = useState(false);
   const dashboard = MOCK_DASHBOARD;
@@ -118,7 +27,7 @@ export default function DashboardPage() {
   if (!mswReady) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)" }}>
-        <div style={{ color: "var(--text-muted)", fontSize: 14 }}>Initialising SentinelAI…</div>
+        <div style={{ color: "var(--text-muted)", fontSize: 14 }}>Initialising VertexAI…</div>
       </div>
     );
   }
@@ -126,8 +35,8 @@ export default function DashboardPage() {
   const VIEW_TABS: ViewTab[] = ["Flow View", "Traffic", "Risk Heatmap"];
 
   return (
+    <RequireAuth>
     <div style={{ background: "var(--bg-primary)", minHeight: "100vh", paddingTop: 56 }}>
-      <TopNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 300px", height: "calc(100vh - 56px)", overflow: "hidden" }}>
 
