@@ -11,10 +11,9 @@ import {
   type TooltipItem,
 } from "chart.js";
 import { MOCK_DASHBOARD } from "../mocks/data";
+import { useAuth } from "./AuthProvider";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 interface DashboardData {
   security_score: number;
