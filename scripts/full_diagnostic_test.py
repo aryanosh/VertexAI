@@ -134,16 +134,16 @@ unauthorized_asset_id = None
 try:
     asset_payload = {
         "hostname": f"prod-app-server-{int(time.time())}.internal",
-        "ipAddress": "192.168.1.100",
+        "ip_address": "192.168.1.100",
         "environment": "PRODUCTION",
-        "criticalityRating": 5,
-        "ownerEmail": "lead-secops@vertexai.internal",
-        "isAuthorized": True
+        "criticality_rating": 5,
+        "owner_email": "lead-secops@vertexai.internal",
+        "is_authorized": True
     }
     r = client.post(f"{BACKEND_URL}/api/assets", json=asset_payload, headers=admin_headers)
     if r.status_code == 201:
         data = r.json()
-        authorized_asset_id = data.get("assetId") or data.get("asset_id")
+        authorized_asset_id = data.get("asset_id") or data.get("assetId")
         log_pass("Create Authorized Asset (201 Created)", f"ID: {authorized_asset_id}")
     else:
         log_fail("Create Authorized Asset", f"Status: {r.status_code}, Body: {r.text}")
@@ -154,16 +154,16 @@ except Exception as e:
 try:
     unauth_asset_payload = {
         "hostname": f"shadow-it-server-{int(time.time())}.external",
-        "ipAddress": "10.200.0.5",
+        "ip_address": "10.200.0.5",
         "environment": "DEV",
-        "criticalityRating": 2,
-        "ownerEmail": "unknown@shadow.net",
-        "isAuthorized": False
+        "criticality_rating": 2,
+        "owner_email": "unknown@shadow.net",
+        "is_authorized": False
     }
     r = client.post(f"{BACKEND_URL}/api/assets", json=unauth_asset_payload, headers=admin_headers)
     if r.status_code == 201:
         data = r.json()
-        unauthorized_asset_id = data.get("assetId") or data.get("asset_id")
+        unauthorized_asset_id = data.get("asset_id") or data.get("assetId")
         log_pass("Create Unauthorized Asset (is_authorized=false)", f"ID: {unauthorized_asset_id}")
     else:
         log_fail("Create Unauthorized Asset", f"Status: {r.status_code}, Body: {r.text}")
@@ -199,7 +199,7 @@ print("\n--- 3. Testing Scan Lifecycle, Policy Gates & HITL Checkpoints ---")
 if unauthorized_asset_id:
     try:
         r = client.post(f"{BACKEND_URL}/api/scans", json={
-            "assetId": unauthorized_asset_id,
+            "asset_id": unauthorized_asset_id,
             "scanners": ["nmap"]
         }, headers=admin_headers)
         if r.status_code in (400, 403):
@@ -215,7 +215,7 @@ scan_id = None
 if authorized_asset_id:
     try:
         r = client.post(f"{BACKEND_URL}/api/scans", json={
-            "assetId": authorized_asset_id,
+            "asset_id": authorized_asset_id,
             "scanners": ["nmap", "zap", "nuclei", "openvas"]
         }, headers=admin_headers)
         if r.status_code in (200, 202):
