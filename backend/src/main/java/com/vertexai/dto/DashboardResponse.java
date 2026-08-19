@@ -25,6 +25,14 @@ public class DashboardResponse {
     @JsonProperty("noise_reduction_percent")
     private Double noiseReductionPercent;
 
+    /** Findings detected before AI noise reduction (total canonical findings). */
+    @JsonProperty("before_noise")
+    private Long beforeNoise;
+
+    /** Findings remaining after AI noise reduction (active, non-suppressed). */
+    @JsonProperty("after_noise")
+    private Long afterNoise;
+
     @JsonProperty("top_threats")
     private List<CanonicalFindingResponse> topThreats;
 }

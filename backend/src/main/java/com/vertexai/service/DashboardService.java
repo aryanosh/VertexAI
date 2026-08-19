@@ -60,6 +60,8 @@ public class DashboardService {
                 .suppressedFindings(suppressedFindings)
                 .activeFindings(activeFindings)
                 .noiseReductionPercent(noiseReductionPercent)
+                .beforeNoise(totalFindings)
+                .afterNoise(activeFindings)
                 .topThreats(topThreats)
                 .build();
     }
