@@ -1,0 +1,63 @@
+{
+  "title": "CISA Known Exploited Vulnerabilities Catalog",
+  "catalogVersion": "2024.01.01",
+  "dateReleased": "2024-01-01T00:00:00.000Z",
+  "count": 5,
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-2021-44228",
+      "vendorProject": "Apache",
+      "product": "Log4j",
+      "vulnerabilityName": "Apache Log4j2 Remote Code Execution Vulnerability",
+      "dateAdded": "2021-12-10",
+      "shortDescription": "Apache Log4j2 JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints.",
+      "requiredAction": "For all affected software assets, apply updates per vendor instructions.",
+      "dueDate": "2021-12-24",
+      "knownRansomwareCampaignUse": "Known"
+    },
+    {
+      "cveID": "CVE-2021-34527",
+      "vendorProject": "Microsoft",
+      "product": "Windows Print Spooler",
+      "vulnerabilityName": "Microsoft Windows Print Spooler Remote Code Execution Vulnerability",
+      "dateAdded": "2021-07-02",
+      "shortDescription": "Microsoft Windows Print Spooler service fails to restrict access to functionality that allows users to add printers and related drivers.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2021-07-16",
+      "knownRansomwareCampaignUse": "Known"
+    },
+    {
+      "cveID": "CVE-2023-44228",
+      "vendorProject": "Apache",
+      "product": "ActiveMQ",
+      "vulnerabilityName": "Apache ActiveMQ Remote Code Execution",
+      "dateAdded": "2023-11-02",
+      "shortDescription": "Apache ActiveMQ contains a remote code execution vulnerability.",
+      "requiredAction": "Apply mitigations per vendor instructions.",
+      "dueDate": "2023-11-16",
+      "knownRansomwareCampaignUse": "Unknown"
+    },
+    {
+      "cveID": "CVE-2023-27997",
+      "vendorProject": "Fortinet",
+      "product": "FortiOS",
+      "vulnerabilityName": "Fortinet FortiOS Heap-Based Buffer Overflow Vulnerability",
+      "dateAdded": "2023-06-13",
+      "shortDescription": "Fortinet FortiOS contains a heap-based buffer overflow vulnerability.",
+      "requiredAction": "Apply updates per vendor instructions.",
+      "dueDate": "2023-06-27",
+      "knownRansomwareCampaignUse": "Known"
+    },
+    {
+      "cveID": "CVE-2024-3400",
+      "vendorProject": "Palo Alto Networks",
+      "product": "PAN-OS",
+      "vulnerabilityName": "Palo Alto Networks PAN-OS Command Injection Vulnerability",
+      "dateAdded": "2024-04-12",
+      "shortDescription": "Palo Alto Networks PAN-OS contains a command injection vulnerability in the GlobalProtect feature.",
+      "requiredAction": "Apply mitigations per vendor instructions.",
+      "dueDate": "2024-04-19",
+      "knownRansomwareCampaignUse": "Unknown"
+    }
+  ]
+}

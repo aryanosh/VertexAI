@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report id="d6a3f120-7b5c-4c28-98e2-b91c89010001" format_id="a994b278-1f62-11e1-96ac-406186ea4fc5" extension="xml" type="scan">
+  <owner>
+    <name>admin</name>
+  </owner>
+  <name>OpenVAS Infrastructure Scan - VertexAI Production Enclave</name>
+  <comment>Automated scheduled comprehensive vulnerability scan</comment>
+  <creation_time>2026-02-17T00:00:00Z</creation_time>
+  <modification_time>2026-02-17T00:07:30Z</modification_time>
+  <results max="1000" start="1">
+    <result id="res-001">
+      <name>Apache Log4j Remote Code Execution Vulnerability (Log4Shell)</name>
+      <comment>Confirmed via active LDAP JNDI lookup callback</comment>
+      <host>192.168.1.100</host>
+      <port>8080/tcp</port>
+      <threat>Critical</threat>
+      <severity>10.0</severity>
+      <qod>
+        <value>98</value>
+        <type>remote_vul</type>
+      </qod>
+      <description>Apache Log4j2 versions 2.0-beta9 through 2.14.1 JNDI features used in configuration, log messages, and parameters do not protect against attacker controlled LDAP and other JNDI related endpoints.</description>
+      <nvt oid="1.3.6.1.4.1.25623.1.0.147205">
+        <name>Apache Log4j Remote Code Execution Vulnerability (Log4Shell)</name>
+        <family>General</family>
+        <cvss_base>10.0</cvss_base>
+        <cve>CVE-2021-44228</cve>
+        <cwe>CWE-94</cwe>
+        <tags>cvss_base_vector=AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H|summary=Apache Log4j is prone to a remote code execution vulnerability.|solution=Update to version 2.17.1 or later.</tags>
+      </nvt>
+    </result>
+    <result id="res-002">
+      <name>OpenSSL TLS Heartbeat Information Disclosure (Heartbleed)</name>
+      <comment>TLS memory exposure verified</comment>
+      <host>192.168.1.100</host>
+      <port>443/tcp</port>
+      <threat>High</threat>
+      <severity>7.5</severity>
+      <qod>
+        <value>95</value>
+        <type>remote_vul</type>
+      </qod>
+      <description>The (1) TLS and (2) DTLS implementations in OpenSSL 1.0.1 before 1.0.1g do not properly handle Heartbeat Extension packets, allowing remote attackers to obtain sensitive information from process memory.</description>
+      <nvt oid="1.3.6.1.4.1.25623.1.0.103930">
+        <name>OpenSSL Heartbleed Vulnerability</name>
+        <family>SSL and TLS</family>
+        <cvss_base>7.5</cvss_base>
+        <cve>CVE-2014-0160</cve>
+        <cwe>CWE-119</cwe>
+        <tags>cvss_base_vector=AV:N/AC:L/Au:N/C:P/I:N/A:N|solution=Upgrade OpenSSL to version 1.0.1g or newer.</tags>
+      </nvt>
+    </result>
+    <result id="res-003">
+      <name>Apache HTTP Server 2.4.49 Path Traversal and RCE</name>
+      <comment>Path traversal probe confirmed file read</comment>
+      <host>10.0.0.15</host>
+      <port>80/tcp</port>
+      <threat>Critical</threat>
+      <severity>9.8</severity>
+      <qod>
+        <value>97</value>
+        <type>remote_vul</type>
+      </qod>
+      <description>An issue was found in Apache HTTP Server 2.4.49 path normalization logic allowing unauthenticated path traversal and potential remote code execution.</description>
+      <nvt oid="1.3.6.1.4.1.25623.1.0.146850">
+        <name>Apache HTTP Server 2.4.49 Path Traversal</name>
+        <family>Web Servers</family>
+        <cvss_base>9.8</cvss_base>
+        <cve>CVE-2021-41773</cve>
+        <cwe>CWE-22</cwe>
+        <tags>solution=Upgrade to Apache HTTP Server 2.4.51 or later.</tags>
+      </nvt>
+    </result>
+    <result id="res-004">
+      <name>TCP Timestamps Supported (Informational)</name>
+      <comment>Host responds with TCP timestamps</comment>
+      <host>192.168.1.100</host>
+      <port>22/tcp</port>
+      <threat>Log</threat>
+      <severity>0.0</severity>
+      <qod>
+        <value>80</value>
+        <type>remote_banner</type>
+      </qod>
+      <description>The remote host implements TCP timestamps which allows computation of system uptime.</description>
+      <nvt oid="1.3.6.1.4.1.25623.1.0.80091">
+        <name>TCP Timestamps Information</name>
+        <family>General</family>
+        <cvss_base>0.0</cvss_base>
+        <cve>NOCVE</cve>
+        <cwe>NOCWE</cwe>
+      </nvt>
+    </result>
+  </results>
+</report>

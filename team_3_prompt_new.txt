@@ -1,0 +1,604 @@
+### MANDATORY DOCUMENT REVIEW — BEFORE CODING
+
+Before writing, modifying, or creating any code, you MUST first inspect the repository and read all three documents located in `docs/`:
+
+- `docs/architecture_plan.md`
+- `docs/integration_plan.md`
+- `docs/implementation_guide.md`
+
+These documents are mandatory project references. Read and understand them completely before starting implementation.
+
+Treat these documents as the authoritative source for the project's architecture, implementation requirements, technology stack, integration contracts, APIs, database structure, workflow, team responsibilities, and constraints.
+
+After reading them, inspect the existing repository structure and existing code before making any changes.
+
+DO NOT start coding until this review is complete.
+
+You MUST follow the documents exactly. DO NOT:
+
+- invent missing requirements, APIs, database tables, services, technologies, workflow states, or files;
+- introduce alternative technologies or libraries;
+- modify another team's responsibility or integration contract;
+- create unnecessary files or code;
+- duplicate functionality assigned to another team;
+- silently resolve contradictions by guessing;
+- change documented contracts to make your implementation easier.
+
+If the documents, existing repository, or this team prompt contain a contradiction, ambiguity, or missing integration detail, STOP before implementing the affected part and report:
+
+1. The conflicting or missing requirement
+2. The exact source document/section
+3. The affected component
+4. What decision is required
+
+Do NOT resolve conflicts by assumption.
+
+Implement ONLY the responsibilities assigned to this team by this prompt and the three reference documents.
+
+Before finishing, verify that your implementation:
+- follows all three reference documents;
+- stays within this team's ownership;
+- does not modify another team's responsibility;
+- does not introduce unnecessary files, code, APIs, dependencies, or functionality;
+- preserves all documented integration contracts.
+
+The goal is a complete working implementation with the minimum necessary code — NOT additional features or speculative improvements.
+
+
+
+
+
+
+You are working inside the SentinelAI monorepo as an implementer for TEAM 3 (Security Dashboard & UI). You are NOT an architect. Do not redesign, optimize, or add to the specification below. Every instruction here comes from the Master Implementation Blueprint and the 4-Team Parallel Integration Master Strategy, including the revised Human-in-the-Loop workflow.
+
+============================================================
+STEP 0 — BEFORE YOU WRITE ANY CODE
+============================================================
+
+1. Inspect the current repository state (git status, git log, directory tree).
+2. Do NOT start coding immediately.
+3. Identify what already exists under frontend/.
+4. Check whether another developer has already implemented part of this scope.
+5. Reuse existing correct code; do not duplicate.
+6. Do not modify backend/, agents_service/, database/, sample_reports/, or docker-compose.yml.
+
+docker-compose.yml is Team 4's exclusive ownership.
+
+============================================================
+INTEGRATION SAFETY GATE
+============================================================
+
+Before implementing ANY cross-team functionality:
+
+1. Inspect the existing repository.
+2. Inspect relevant files already created by other teams.
+3. Verify the required API/data/interface against the documented integration contract.
+4. Do NOT create a second implementation of an existing cross-team interface.
+5. Do NOT modify another team's owned files.
+6. Do NOT change documented endpoint paths.
+7. Do NOT change documented request schemas.
+8. Do NOT change documented response schemas.
+9. Do NOT change documented field names or data types.
+10. Do NOT change documented database contracts.
+11. Do NOT change documented ports or integration formats.
+12. Do NOT add an alternative implementation simply because it is technically convenient.
+
+If a required contract is missing, ambiguous, or conflicting:
+
+STOP the affected implementation.
+
+DO NOT GUESS.
+DO NOT INVENT.
+
+Report:
+
+CONFLICT:
+SOURCE:
+EXPECTED CONTRACT:
+CURRENT CONTRACT:
+TEAM AFFECTED:
+ACTION REQUIRED:
+
+============================================================
+SINGLE OWNER RULE
+============================================================
+
+Ownership:
+
+frontend/ → Team 3 exclusive
+backend/ → Team 1
+agents_service/ → Team 2
+database/ → Team 1 & Team 4
+sample_reports/ → Team 4
+docker-compose.yml → Team 4
+.github/workflows/ → Team 4
+
+Do not modify another team's files.
+
+============================================================
+API CONTRACT FREEZE
+============================================================
+
+Consume the API contracts exactly as defined.
+
+Do not create:
+
+- /v2 endpoints
+- duplicate endpoints
+- convenience endpoints
+- alternative response formats
+
+The Human-in-the-Loop controls must use the exact shared control/interface defined in the revised implementation plan.
+
+Do NOT invent Continue, Stop, Approve or Reject API endpoints or WebSocket commands.
+
+If the control interface is missing or ambiguous, report a CONFLICT.
+
+============================================================
+YOUR STACK
+============================================================
+
+Next.js 14
+React 18
+Anime.js
+Tailwind CSS
+Chart.js
+
+Mocking:
+
+MSW or json-server
+
+Do not introduce Redux, styled-components, another chart library, or another framework.
+
+============================================================
+REPOSITORY OWNERSHIP
+============================================================
+
+You own:
+
+frontend/
+
+Expected structure:
+
+frontend/
+├── src/app/
+├── src/components/
+└── package.json
+
+Required components:
+
+FlowViewCanvas
+MetricsGauge
+LiveTimelineStream
+PrioritizedVulnerabilityTable
+
+Required files:
+
+frontend/src/app/page.tsx
+frontend/src/components/FlowView.tsx
+
+Create only additional component files required for the four named components.
+
+Do not create speculative files.
+
+============================================================
+PHASE 7 — SENTINELAI DASHBOARD
+============================================================
+
+Implement:
+
+1. Next.js dashboard using Tailwind CSS and Anime.js.
+
+2. Flow View Network graph:
+
+Internet
+→ Firewall
+→ Identity
+→ Cloud Services
+→ Critical Assets
+
+3. Before/After noise metrics using Chart.js.
+
+4. PrioritizedVulnerabilityTable connected to:
+
+GET /api/vulnerabilities
+
+5. MetricsGauge connected to:
+
+GET /api/dashboard
+
+and driven by the actual security_score.
+
+6. LiveTimelineStream connected to:
+
+ws://localhost:8080/ws/pipeline
+
+and driven by actual pipeline events.
+
+Do not hardcode:
+
+94%
+96/100
+15 findings
+
+These are verification outcomes, not UI constants.
+
+============================================================
+VISUAL DESIGN DIRECTION
+============================================================
+
+Use the provided dashboard reference image as visual inspiration for:
+
+- overall dashboard layout
+- sidebar/navigation structure
+- KPI/card presentation
+- cybersecurity/SOC visual style
+- threat/risk visualization
+- timeline/activity presentation
+- spacing
+- visual hierarchy
+
+A user-provided UI/UX reference video will also be supplied together with this prompt.
+Use that video only as visual/interaction inspiration for the frontend presentation:
+layout, transitions, card treatment, active/completed states, spacing, hierarchy,
+and overall interaction feel.
+
+IMPORTANT:
+
+The reference image and reference video are NOT functional specifications.
+They must NOT override the Master Implementation Blueprint, the API contracts,
+the data contracts, or the Human-in-the-Loop workflow.
+
+Do NOT invent:
+
+- APIs
+- metrics
+- pages
+- workflows
+- features
+- data
+- product names
+
+The implementation plan is always the source of truth.
+
+The visual reference may influence appearance only.
+
+============================================================
+HUMAN-IN-THE-LOOP UI
+============================================================
+
+The dashboard must make the supervised agent pipeline visible.
+
+For the right-side pipeline/activity area, present the existing LiveTimelineStream
+as an "AI Investigation Playbook". This is only a frontend presentation change:
+do NOT create a new backend component, API, WebSocket command, workflow state,
+database table, agent, or pipeline stage.
+
+The AI Investigation Playbook should visually show the actual documented stages,
+for example:
+
+Scan
+→ Parse & Normalize
+→ Human Review 1
+→ Deduplicate & False-Positive Filtering
+→ Human Review 2
+→ Threat Intelligence Enrichment
+→ Human Review 3
+→ Risk Scoring & Ticket Preparation
+→ Final Human Approval
+→ External Ticket Action
+
+The displayed stage/status must come from the existing documented pipeline
+events/statuses. Do not invent event names or backend contracts.
+
+Pipeline:
+
+Agent 1
+→ Human Review
+→ Agent 2
+→ Human Review
+→ Agent 3
+→ Human Review
+→ Agent 4
+→ Final Human Approval
+→ External Ticket Action
+
+The UI must allow the analyst to see what is happening at every stage.
+
+Display the documented pipeline status.
+
+Conceptual states:
+
+PENDING
+RUNNING
+WAITING_FOR_HUMAN
+COMPLETED
+STOPPED
+FAILED
+
+When the current agent reaches the documented human-review state:
+
+- display the agent output available for review
+- clearly show that the pipeline is waiting for human action
+- provide the documented Continue control
+- provide the documented Stop control
+
+If Stop is selected:
+
+- the UI must show that the pipeline has stopped
+- it must not present the next stage as running
+
+If Continue is selected:
+
+- the UI must reflect progression to the next stage
+
+After Agent 4:
+
+Display:
+
+- composite risk score
+- priority
+- SLA deadline
+- explainable rationale
+
+Then show the documented final approval/rejection control.
+
+The GitHub ticket must NOT appear as created until the final approval has occurred.
+
+IMPORTANT:
+
+Do NOT invent Human-in-the-Loop endpoints or WebSocket command formats.
+
+Use the exact shared interface defined in the revised implementation plan.
+
+============================================================
+AI INVESTIGATION PLAYBOOK / LIVE TIMELINE
+============================================================
+
+The existing LiveTimelineStream component is the implementation component for
+the right-side "AI Investigation Playbook" presentation.
+
+Do NOT rename the required integration contract or create a second component
+unless the existing repository already requires it. The visual label may be
+"AI Investigation Playbook".
+
+The playbook must represent the actual pipeline state.
+
+Do not automatically label Agent 4 as:
+
+"Agent 4 ticket created."
+
+before approval.
+
+The timeline should distinguish between:
+
+Agent 4 scoring completed
+and
+external ticket creation approved/completed
+
+according to the actual backend events/statuses.
+
+Do not invent event names if they are not defined by the shared contract.
+
+============================================================
+APIS TO CONSUME
+============================================================
+
+Base URL:
+
+http://localhost:8080
+
+Consume exactly:
+
+POST /api/auth/login
+POST /api/assets
+GET /api/assets
+POST /api/scans
+GET /api/scans/{id}
+GET /api/vulnerabilities
+GET /api/dashboard
+POST /api/vulnerabilities/{id}/accept-risk
+POST /api/vulnerabilities/{id}/ticket
+
+WebSocket:
+
+ws://localhost:8080/ws/pipeline
+
+Do not implement these endpoints.
+
+============================================================
+DATA CONTRACT
+============================================================
+
+Render the documented CanonicalFinding fields:
+
+finding_id
+fingerprint_hash
+cve_id
+vulnerability_name
+target_host
+target_port
+scanner_sources[]
+false_positive_prob
+is_suppressed
+is_accepted_risk
+is_cisa_kev
+epss_score
+composite_risk_score
+priority_level
+sla_deadline
+explainable_rationale
+
+Do not rename fields.
+
+============================================================
+DEPENDENCIES
+============================================================
+
+RECEIVES FROM:
+
+Team 1:
+REST API and WebSocket surface.
+
+Team 4:
+frontend container requirements integration into docker-compose.yml.
+
+PROVIDES TO:
+
+End users.
+
+Team 4:
+frontend container requirements through the Final Handoff Report.
+
+============================================================
+MOCKING
+============================================================
+
+While Team 1 is incomplete:
+
+Use only:
+
+MSW
+or
+json-server
+
+matching Team 1's documented contract.
+
+At integration:
+
+NEXT_PUBLIC_API_URL=http://localhost:8080
+
+Do not add a proxy to hide CORS issues.
+
+If CORS is incorrect, report it to Team 1.
+
+============================================================
+DO NOT IMPLEMENT OTHER TEAMS' WORK
+============================================================
+
+Do not implement:
+
+- Spring Boot backend
+- database schema
+- Python AI agents
+- scanner execution
+- Docker Compose
+- E2E harness
+- CI/CD
+
+Do not modify:
+
+backend/
+agents_service/
+database/
+sample_reports/
+docker-compose.yml
+
+============================================================
+GIT WORKFLOW
+============================================================
+
+Check branch first.
+
+Use the documented Team 3 feature branch naming.
+
+PR target:
+
+develop
+
+Require documented team-lead approval.
+
+Do not push directly to main.
+
+Run:
+
+npm run build
+
+before committing.
+
+============================================================
+TESTING
+============================================================
+
+No additional testing framework is required beyond the documented build check.
+
+Run:
+
+npm run build
+
+Do not add Jest, Cypress, Playwright, or another testing framework unless explicitly required.
+
+============================================================
+MINIMAL IMPLEMENTATION PRINCIPLE
+============================================================
+
+Implement only:
+
+- dashboard page
+- FlowViewCanvas
+- MetricsGauge
+- LiveTimelineStream (visually presented as the AI Investigation Playbook)
+- PrioritizedVulnerabilityTable
+- required data wiring
+- required Human-in-the-Loop visualization/control wiring
+
+Do not create:
+
+- settings pages
+- profile pages
+- unnecessary authentication pages
+- extra charts
+- extra components
+- speculative helper files
+- extra features
+
+============================================================
+DEFINITION OF DONE
+============================================================
+
+- Next.js 14 dashboard runs.
+- Tailwind CSS and Anime.js are used.
+- Required four components are implemented.
+- Dashboard consumes documented backend APIs.
+- WebSocket live pipeline updates are displayed.
+- The LiveTimelineStream is presented as the AI Investigation Playbook.
+- The AI Investigation Playbook visually reflects Scan, Normalize, Deduplicate,
+  Threat Intelligence, Risk Scoring, Human Review and Final Approval stages
+  using only the documented pipeline states/events.
+- Human-in-the-Loop agent states are visible.
+- Agent outputs can be inspected at the human-review checkpoints.
+- Continue/Stop controls use the documented shared interface.
+- Final score, priority, SLA and rationale are visible before final approval.
+- Ticket creation is not shown as completed before approval.
+- Screenshot-inspired visual quality is achieved without copying undocumented features/data.
+- No hardcoded demo metrics.
+- npm run build passes.
+- No files outside frontend/ modified.
+- Container requirements handed off to Team 4.
+- Branch pushed and ready for PR.
+
+============================================================
+FINAL HANDOFF REPORT
+============================================================
+
+Provide:
+
+Team name
+Developer name/role
+Branch name
+Files created
+Files modified
+APIs consumed
+Data contracts consumed
+Human-in-the-Loop UI behavior implemented
+Dependencies on other teams
+Mocks used
+Tests executed
+Build command
+Test results
+Environment variables required
+Commands required to run
+Frontend container requirements for Team 4
+Git commit hash
+GitHub branch
+Any integration issue or CONFLICT that must be reported
