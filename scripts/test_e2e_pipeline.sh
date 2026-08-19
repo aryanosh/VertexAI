@@ -203,7 +203,24 @@ else
   STATUS_RESP4='{"scan_id":"scan-test-001","status":"WAITING_FOR_HUMAN","stage":"FINAL_APPROVAL","top_vulnerability_id":"vuln-cve-2021-44228","priority":"P0_CRITICAL","composite_risk_score":98.5}'
 fi
 
-VULN_ID=$(echo "${STATUS_RESP4}" | grep -o '"top_vulnerability_id":"[^"]*' | cut -d'"' -f4 || echo "vuln-cve-2021-44228")
+if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
+  # Final Human Approval checkpoint: CONTINUE marks the pipeline COMPLETED
+  echo "👉 Simulating Final Human Approval: CONTINUE (marks pipeline COMPLETED)"
+  curl -s -X POST "${BACKEND_URL}/api/scans/${SCAN_ID}/control" \
+    -H "Content-Type: application/json" \
+    -H "${AUTH_HEADER}" \
+    -d '{"action":"CONTINUE"}' > /dev/null
+
+  # Fetch the top prioritized canonical finding for ticket dispatch
+  VULNS_RESP=$(curl -s -X GET "${BACKEND_URL}/api/vulnerabilities" -H "${AUTH_HEADER}")
+  VULN_ID=$(echo "${VULNS_RESP}" | grep -o '"finding_id":"[^"]*' | head -n 1 | cut -d'"' -f4 || echo "")
+  if [ -z "${VULN_ID}" ]; then
+    echo "❌ No canonical findings persisted; cannot proceed to ticket approval."
+    exit 1
+  fi
+else
+  VULN_ID="vuln-cve-2021-44228"
+fi
 echo "✅ Agent 4 prepared ticket payload. Awaiting Final Human Approval on ${VULN_ID}."
 
 # ------------------------------------------------------------------------------
@@ -214,19 +231,27 @@ echo "--- STAGE 7: Testing HITL 'STOP' Behavior Verification ---"
 echo "Verifying that choosing STOP halts processing and blocks GitHub ticket creation..."
 if [ "${E2E_DRY_RUN:-false}" != "true" ]; then
   # Trigger secondary test scan to test STOP action
-  STOP_SCAN_PAYLOAD="{\"assetId\":\"${ASSET_ID}\",\"scanners\":[\"nmap\"]}"
+  STOP_SCAN_PAYLOAD="{\"asset_id\":\"${ASSET_ID}\",\"scanners\":[\"nmap\"]}"
   STOP_SCAN_RESP=$(curl -s -X POST "${BACKEND_URL}/api/scans" \
     -H "Content-Type: application/json" \
     -H "${AUTH_HEADER}" \
     -d "${STOP_SCAN_PAYLOAD}")
   STOP_SCAN_ID=$(echo "${STOP_SCAN_RESP}" | grep -o '"scan_id":"[^"]*' | cut -d'"' -f4 || echo "scan-stop-test")
-  
+
   # Send STOP action
   STOP_ACTION_RESP=$(curl -s -X POST "${BACKEND_URL}/api/scans/${STOP_SCAN_ID}/control" \
     -H "Content-Type: application/json" \
     -H "${AUTH_HEADER}" \
     -d '{"action":"STOP"}')
   STOP_STATUS=$(echo "${STOP_ACTION_RESP}" | grep -o '"status":"[^"]*' | cut -d'"' -f4 || echo "STOPPED")
+
+  # Verify no later agent overwrites the STOPPED state (in-flight agent guard)
+  sleep 5
+  STOP_STATUS_AFTER=$(curl -s -X GET "${BACKEND_URL}/api/scans/${STOP_SCAN_ID}" -H "${AUTH_HEADER}" | grep -o '"status":"[^"]*' | cut -d'"' -f4 || echo "")
+  if [ "${STOP_STATUS_AFTER}" != "STOPPED" ]; then
+    echo "❌ STOP verification failed: status changed to ${STOP_STATUS_AFTER} after STOP."
+    exit 1
+  fi
 else
   STOP_STATUS="STOPPED"
 fi
