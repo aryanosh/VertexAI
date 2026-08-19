@@ -417,7 +417,7 @@ export function InteractivePipelineView() {
 
   const selectedStage = PIPELINE_STAGES.find(s => s.id === selectedStageId) || PIPELINE_STAGES[3];
   const selectedStatus = getStageStatus(selectedStage);
-  const isAwaitingHuman = scanState?.status === "WAITING_FOR_HUMAN" && scanState.current_stage === selectedStage.key;
+  const isAwaitingHuman = scanState?.status === "WAITING_FOR_HUMAN" && deriveStageKey(scanState) === selectedStage.key;
 
   return (
     <div className="flex flex-col h-full w-full gap-2">
