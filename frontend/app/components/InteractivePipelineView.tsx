@@ -369,17 +369,18 @@ export function InteractivePipelineView() {
   const getStageStatus = (stage: StageDefinition): PipelineStatus => {
     if (!scanState) return "PENDING";
     const isStopped = scanState.status === "STOPPED" || scanState.status === "FAILED";
+    const currentKey = deriveStageKey(scanState);
 
     if (scanState.status === "COMPLETED") return "COMPLETED";
-    if (stage.key === scanState.current_stage) {
+    if (stage.key === currentKey) {
       return isStopped ? "STOPPED" : scanState.status;
     }
 
-    const currentIndex = PIPELINE_STAGES.findIndex(s => s.key === scanState.current_stage);
+    const currentIndex = PIPELINE_STAGES.findIndex(s => s.key === currentKey);
     const stageIndex = PIPELINE_STAGES.findIndex(s => s.id === stage.id);
 
     if (currentIndex === -1) {
-      return stageIndex <= 4 ? "COMPLETED" : "PENDING";
+      return "PENDING";
     }
 
     if (stageIndex < currentIndex) return "COMPLETED";
