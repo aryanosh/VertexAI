@@ -97,15 +97,28 @@ function CircularGauge({ score }: { score: number }) {
 }
 
 export function MetricsGauge() {
+  const { apiFetch, token } = useAuth();
   const [data, setData] = useState<DashboardData>(MOCK_DASHBOARD as DashboardData);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/dashboard`)
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+    if (!token) { setLoading(false); return; }
+    apiFetch(`/api/dashboard`)
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((d) => {
+        // Merge live backend metrics over defaults so panels that rely on
+        // fields the backend does not provide keep rendering.
+        setData((prev) => ({
+          ...prev,
+          security_score: typeof d.security_score === "number" ? d.security_score : prev.security_score,
+          before_noise: typeof d.before_noise === "number" ? d.before_noise : prev.before_noise,
+          after_noise: typeof d.after_noise === "number" ? d.after_noise : prev.after_noise,
+          open_incidents: typeof d.active_findings === "number" ? d.active_findings : prev.open_incidents,
+        }));
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
-  }, []);
+  }, [token, apiFetch]);
 
   const noiseChartData = {
     labels: ["Before AI", "After AI"],
