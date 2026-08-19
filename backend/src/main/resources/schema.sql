@@ -97,3 +97,37 @@ ON CONFLICT (username) DO NOTHING;
 INSERT INTO users (username, email, password_hash, role)
 VALUES ('viewer', 'viewer@vertexai.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'VIEWER')
 ON CONFLICT (username) DO NOTHING;
+
+-- Seed Authorized Asset
+INSERT INTO assets (asset_id, hostname, ip_address, environment, criticality_rating, owner_email, is_authorized)
+VALUES ('3fa85f64-5717-4562-b3fc-2c963f66afa6', 'prod-api-server-01.internal', '10.0.1.15', 'PRODUCTION', 5, 'secops@vertexai.local', TRUE)
+ON CONFLICT (hostname) DO NOTHING;
+
+-- Seed Canonical Vulnerabilities
+INSERT INTO canonical_vulnerabilities (finding_id, fingerprint_hash, cve_id, vulnerability_name, target_host, target_port, cvss_base_score, scanner_sources, false_positive_prob, is_suppressed, is_accepted_risk)
+VALUES 
+  ('a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', 'e9b0c290d0fb1ca068ffaddf22cbd0a1', 'CVE-2021-44228', 'Apache Log4j2 JNDI Remote Code Execution', '10.0.1.15', 8080, 10.0, 'NUCLEI, OWASP_ZAP', 0.02, FALSE, FALSE),
+  ('b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e', 'f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6', 'CVE-2023-44487', 'HTTP/2 Rapid Reset Denial of Service', '10.0.1.15', 443, 7.5, 'NUCLEI', 0.05, FALSE, FALSE),
+  ('c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f', 'a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4', 'CVE-2021-21985', 'VMware vCenter Server Remote Code Execution', '10.0.1.15', 443, 9.8, 'OPENVAS', 0.04, FALSE, FALSE),
+  ('d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a', 'c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6', 'CVE-2022-22965', 'Spring Framework Spring4Shell RCE', '10.0.1.15', 8080, 5.2, 'OWASP_ZAP', 0.08, FALSE, FALSE),
+  ('e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b', 'd2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7', 'CVE-2020-0001', 'False Positive Echo Banner Header', '10.0.1.15', 80, 3.0, 'OPENVAS', 0.92, TRUE, FALSE)
+ON CONFLICT (fingerprint_hash) DO NOTHING;
+
+-- Seed Threat Intelligence
+INSERT INTO vulnerability_intelligence (cve_id, is_cisa_kev, epss_score, epss_percentile, exploit_db_available)
+VALUES 
+  ('CVE-2021-44228', TRUE, 0.972, 0.999, TRUE),
+  ('CVE-2023-44487', TRUE, 0.770, 0.980, TRUE),
+  ('CVE-2021-21985', TRUE, 0.880, 0.990, TRUE),
+  ('CVE-2022-22965', FALSE, 0.520, 0.850, FALSE)
+ON CONFLICT (cve_id) DO NOTHING;
+
+-- Seed Risk Scores
+INSERT INTO risk_scores (score_id, finding_id, composite_risk_score, priority_level, explainable_rationale)
+VALUES 
+  ('11111111-1111-1111-1111-111111111111', 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', 94.5, 'P0_CRITICAL', 'Composite Risk Score: 94.5/100.0 [P0_CRITICAL]. CVSS Base Score: 10.0 (contributes 3.0 pts). EPSS Score: 0.972 (contributes 34.0 pts). CISA KEV: Listed in Known Exploited Vulnerabilities (+25.0 pts). Asset Criticality: 5/5 (contributes 20.0 pts). Scanners: NUCLEI, OWASP_ZAP.'),
+  ('22222222-2222-2222-2222-222222222222', 'b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e', 77.0, 'P1_HIGH', 'Composite Risk Score: 77.0/100.0 [P1_HIGH]. High exploit probability on production web server.'),
+  ('33333333-3333-3333-3333-333333333333', 'c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f', 88.0, 'P0_CRITICAL', 'Composite Risk Score: 88.0/100.0 [P0_CRITICAL]. Critical remote execution vulnerability on production infrastructure.'),
+  ('44444444-4444-4444-4444-444444444444', 'd4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a', 52.0, 'P2_MEDIUM', 'Composite Risk Score: 52.0/100.0 [P2_MEDIUM]. Medium risk vulnerability with moderate exploit likelihood.')
+ON CONFLICT (finding_id) DO NOTHING;
+

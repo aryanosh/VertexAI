@@ -3,7 +3,7 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     if (isServer) {
       // msw/browser is client-only — prevent server-side bundling
-      config.resolve.alias["msw/browser"] = false;
+      config.resolve.alias['msw/browser'] = false;
     }
     return config;
   },

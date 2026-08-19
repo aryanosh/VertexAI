@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   # ============================================================================
   # 1. Authoritative PostgreSQL 16 Database
@@ -41,7 +43,7 @@ services:
       FIRST_EPSS_URL: ${FIRST_EPSS_URL:-https://api.first.org/data/v1/epss}
       NVD_API_URL: ${NVD_API_URL:-https://services.nvd.nist.gov/rest/json/cves/2.0}
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      test: ["CMD-SHELL", "python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')""]
       interval: 10s
       timeout: 5s
       retries: 5
