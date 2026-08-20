@@ -29,5 +29,19 @@ async def health():
     return {"status": "UP", "service": "python-agents"}
 
 
+@app.get("/agent-runtime")
+async def agent_runtime_status():
+    """Reports whether agentic reasoning is active, and with which model.
+
+    Useful for confirming at a glance whether Agent 3 is genuinely reasoning over tools or
+    running its deterministic fallback. Never returns the API key itself.
+    """
+    from agent_runtime import runtime_status
+
+    status = runtime_status()
+    status["agent3_mode"] = "AGENTIC" if status["agentic_active"] else "DETERMINISTIC"
+    return status
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

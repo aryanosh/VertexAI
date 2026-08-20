@@ -127,7 +127,7 @@ This exact field set must be identical across Team 1 (persists/returns it), Team
 
 **Fingerprint formula** (Team 2, exact): `MD5(target_host + ":" + target_port + ":" + cve_id + ":" + endpoint_path)`
 
-**Composite Risk Score formula** (Team 2, exact): `(CVSS × 0.30) + (EPSS × 10 × 0.35) + KEV_Bonus + (Asset_Criticality × 4.0)`, KEV_Bonus = +25.0 if CISA KEV listed else 0.0.
+**Composite Risk Score formula** (Team 2, exact): `(CVSS ÷ 10 × 30) + (EPSS × 35) + KEV_Bonus + (Asset_Criticality ÷ 5 × 20)`, KEV_Bonus = +25.0 if CISA KEV listed else 0.0.
 
 **SLA tiers** (exact): P0 80.0–100.0 → 24h · P1 60.0–79.9 → 72h · P2 40.0–59.9 → 14d · P3 0.0–39.9 → 30d.
 

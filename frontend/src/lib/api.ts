@@ -20,6 +20,7 @@ import {
   TicketResponse,
   LoginRequest,
   LoginResponse,
+  DedupRecord,
 } from '@/types/contracts';
 
 const API_BASE_URL =
@@ -159,15 +160,17 @@ async function apiFetch<T>(
 
   if (!response.ok) {
     if (response.status === 401 && token) {
+      // The token sessionStorage held was rejected by the backend (expired or
+      // invalid). There is no way to "refresh" it client-side — a retry here
+      // would just resend the same now-cleared token and fail identically,
+      // forever, on every subsequent call. Clear the session and force the
+      // user back through a real login; auth.clearSession() dispatches
+      // 'auth-changed' with isAuthenticated:false, which the app root listens
+      // to in order to show the login screen.
       auth.clearSession();
-      const freshToken = await ensureAuthenticated();
-      if (freshToken) {
-        headers['Authorization'] = `Bearer ${freshToken}`;
-        const retryResponse = await fetch(url, { ...options, headers });
-        if (retryResponse.ok) {
-          return retryResponse.json() as Promise<T>;
-        }
-      }
+      throw new Error(
+        `Session expired — please sign in again. [${response.status}] ${endpoint}`
+      );
     }
     const errBody = await response.text();
     throw new Error(`API Error [${response.status}] ${endpoint}: ${errBody}`);
@@ -196,36 +199,62 @@ export const api = {
     return data;
   },
 
-  // 2. Dashboard Metrics (GET /api/dashboard)
-  getDashboardMetrics: async (): Promise<DashboardMetrics> => {
-    try {
-      return await apiFetch<DashboardMetrics>('/api/dashboard');
-    } catch (err) {
-      console.warn('[API] Fetch /api/dashboard fallback to default structure', err);
-      return {
-        security_score: 96.0,
-        total_findings: 5,
-        suppressed_findings: 1,
-        active_findings: 4,
-        noise_reduction_percent: 94.0,
-        top_threats: [],
-      };
-    }
+  // 2. Dashboard Metrics (GET /api/dashboard?scan_id=...)
+  // `scanId` omitted -> backend defaults to the most recent completed non-seed scan.
+  // No fallback data on error: a failed fetch must surface as a real error state in the
+  // UI, never as fabricated numbers that look like genuine results.
+  getDashboardMetrics: async (scanId?: string): Promise<DashboardMetrics> => {
+    const query = scanId ? `?scan_id=${encodeURIComponent(scanId)}` : '';
+    return apiFetch<DashboardMetrics>(`/api/dashboard${query}`);
   },
 
-  // 3. Vulnerabilities (GET /api/vulnerabilities)
+  // 3. Vulnerabilities (GET /api/vulnerabilities?scan_id=...)
   getVulnerabilities: async (
+    scanId?: string,
     severity?: string,
     priority?: string,
     includeSuppressed: boolean = false
   ): Promise<CanonicalFinding[]> => {
     const params = new URLSearchParams();
+    if (scanId) params.append('scan_id', scanId);
     if (severity) params.append('severity', severity);
     if (priority) params.append('priority', priority);
     if (includeSuppressed) params.append('include_suppressed', 'true');
 
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiFetch<CanonicalFinding[]>(`/api/vulnerabilities${query}`);
+  },
+
+  // 3b. Agent 2 per-finding dedup report (GET /api/scans/{scanId}/dedup-report)
+  // Every raw input finding, including ones merged away as duplicates or suppressed as
+  // false positives — not just the surviving canonical findings.
+  getDedupReport: async (scanId: string): Promise<DedupRecord[]> => {
+    return apiFetch<DedupRecord[]>(`/api/scans/${scanId}/dedup-report`);
+  },
+
+  // 3c. Download the same report as CSV (GET /api/scans/{scanId}/dedup-report.csv)
+  // A plain <a href> can't carry the Bearer token, and the sandboxed-download restriction
+  // that blocks script-driven saves applies only to the Artifacts environment this code was
+  // authored in — not to the real browser this Next.js app runs in — so a fetch-as-blob +
+  // temporary object URL is the correct approach here.
+  downloadDedupReportCsv: async (scanId: string): Promise<void> => {
+    const token = auth.getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/scans/${scanId}/dedup-report.csv`, { headers });
+    if (!res.ok) {
+      throw new Error(`Failed to download dedup report [${res.status}]`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dedup-report-${scanId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
 
   // 4. Vulnerability by ID (GET /api/vulnerabilities/{id})
@@ -252,11 +281,12 @@ export const api = {
     });
 
     if (typeof window !== 'undefined') {
+      // Announce the ticket URL only. Deliberately no `status` here: 'TICKET_DISPATCHED'
+      // is not a real pipeline status and would overwrite the genuine backend state.
       window.dispatchEvent(
         new CustomEvent('pipeline-event', {
           detail: {
-            status: 'TICKET_DISPATCHED',
-            stage: 4,
+            ticketUrl: res.ticket_url,
             message: `GitHub issue successfully dispatched: ${res.ticket_url || 'Issue created'}`,
           },
         })
@@ -266,24 +296,9 @@ export const api = {
   },
 
   // 7. Assets (GET/POST /api/assets)
+  // No fallback data on error — propagate so the caller can show a real error state.
   getAssets: async (): Promise<Asset[]> => {
-    try {
-      return await apiFetch<Asset[]>('/api/assets');
-    } catch (err) {
-      console.warn('[API] /api/assets error, using fallback seed asset', err);
-      return [
-        {
-          assetId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-          hostname: 'prod-api-server-01.internal',
-          ipAddress: '10.0.1.15',
-          environment: 'PRODUCTION',
-          criticalityRating: 5,
-          ownerEmail: 'secops@vertexai.local',
-          isAuthorized: true,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-    }
+    return apiFetch<Asset[]>('/api/assets');
   },
 
   createAsset: async (asset: CreateAssetRequest): Promise<Asset> => {
@@ -310,9 +325,10 @@ export const api = {
       window.dispatchEvent(
         new CustomEvent('pipeline-event', {
           detail: {
-            status: 'SCAN_STARTED',
-            stage: 1,
-            message: `Sandbox scan launched with ${scanners.join(', ')}. Agent 1 schema parsing complete.`,
+            status: res.status,
+            stage: res.current_stage ?? res.currentStage ?? 0,
+            scanId: res.scan_id || res.scanId,
+            message: `Sandbox scan launched with ${scanners.join(', ')}. Agent 1 is parsing the reports.`,
           },
         })
       );
@@ -323,6 +339,15 @@ export const api = {
   // 9. Get Scan Status (GET /api/scans/{id})
   getScanStatus: async (scanId: string): Promise<ScanStatusResponse> => {
     return apiFetch<ScanStatusResponse>(`/api/scans/${scanId}`);
+  },
+
+  // 9b. Get Latest Scan Status (GET /api/scans/latest)
+  getLatestScan: async (): Promise<ScanStatusResponse | null> => {
+    try {
+      return await apiFetch<ScanStatusResponse>('/api/scans/latest');
+    } catch {
+      return null;
+    }
   },
 
   // 10. HITL Control Action (POST /api/scans/{id}/control)
@@ -342,19 +367,73 @@ export const api = {
         action === 'STOP'
           ? `Pipeline stopped by analyst at Gate ${stage}.`
           : status === 'COMPLETED'
-          ? 'Pipeline execution completed. All human approval gates passed.'
-          : `Gate ${stage - 1 || 1} approved. Agent ${stage} complete — Checkpoint Gate ${stage} ready for review.`;
+            ? 'Pipeline execution completed. All human approval gates passed.'
+            : `Gate ${stage - 1 || 1} approved. Agent ${stage} complete — Checkpoint Gate ${stage} ready for review.`;
 
       window.dispatchEvent(
         new CustomEvent('pipeline-event', {
           detail: {
             status: status === 'COMPLETED' ? 'COMPLETED' : `GATE_${stage}_READY`,
             stage,
+            scanId,
             message: msg,
           },
         })
       );
     }
     return res;
+  },
+
+  // 11. Multi-file Upload (POST /api/scans/upload)
+  uploadScanReports: async (
+    assetId: string,
+    files: File[],
+    scanners?: string[]
+  ): Promise<ScanStatusResponse> => {
+    const formData = new FormData();
+    formData.append('assetId', assetId);
+    files.forEach((file) => formData.append('files', file));
+    if (scanners && scanners.length > 0) {
+      scanners.forEach((sc) => formData.append('scanners', sc));
+    }
+
+    const token = auth.getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}/api/scans/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || `Failed to upload scan files with status ${res.status}`);
+    }
+
+    const data = (await res.json()) as ScanStatusResponse;
+    const scanId = data.scanId || data.scan_id || '';
+    if (typeof window !== 'undefined' && scanId) {
+      // Deliberately not cached in sessionStorage: PipelineContext's `refresh()` already
+      // restores the correct scan on page load via GET /api/scans/latest, which always
+      // reflects the true latest scan server-side. A cached id here would go stale the
+      // moment a second scan started in another tab and could resurrect an abandoned run.
+      // Report the stage the backend actually reported. Defaulting to 1 used to claim
+      // Agent 1 had finished the instant the upload returned, while it had only just
+      // been queued.
+      const stage = data.current_stage ?? data.currentStage ?? 0;
+      window.dispatchEvent(
+        new CustomEvent('pipeline-event', {
+          detail: {
+            status: data.status || 'RUNNING',
+            stage,
+            scanId,
+            message: `Uploaded ${files.length} report file(s). Agent 1 is now parsing them for scan ${scanId}`,
+          },
+        })
+      );
+    }
+    return data;
   },
 };

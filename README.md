@@ -23,7 +23,7 @@ VertexAI runs as an integrated multi-service containerized architecture orchestr
 
 | Service | Technology Stack | Container Name | Port Mapping | Responsibility |
 | :--- | :--- | :--- | :--- | :--- |
-| **PostgreSQL** | PostgreSQL 16 Alpine | `vertexai-postgres` | `5432:5432` | Authoritative 7-table database |
+| **PostgreSQL** | PostgreSQL 16 Alpine | `vertexai-postgres` | `5433:5432` | Authoritative 7-table database (host port **5433**) |
 | **Python Agents** | Python 3.11 / FastAPI | `vertexai-agents` | `8000:8000` | AI Agents 1–4 microservices |
 | **Backend API** | Java 17 / Spring Boot 3 | `vertexai-backend` | `8080:8080` | Core API, Orchestration, Auth, GitHub Client |
 | **Frontend UI** | Next.js 14 / React 18 | `vertexai-frontend` | `3000:3000` | HITL Dashboard, Flow View, Live Controls |
@@ -77,7 +77,7 @@ docker-compose up --build
 - **Backend API**: [http://localhost:8080](http://localhost:8080)
 - **Backend Swagger Docs**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **Python Agents Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Database**: `localhost:5432` (`vertexai_db`)
+- **Database**: `localhost:5433` (`vertexai_db`)
 
 ---
 

@@ -1,23 +1,37 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Shield,
   Bell,
   ChevronDown,
   LogOut,
-} from 'lucide-react';
-import { auth } from '@/lib/api';
-import { NotificationsPopover } from './notifications-popover';
+  LayoutDashboard,
+  Upload,
+  ShieldAlert,
+  GitFork,
+  FileText,
+} from "lucide-react";
+import { auth } from "@/lib/api";
+import { NotificationsPopover } from "./notifications-popover";
 
-const NAV = ['Overview', 'Key Alerts', 'Insights', 'Executions'];
+export const NAV_LINKS = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Uploads", href: "/uploads", icon: Upload },
+  { name: "Findings", href: "/findings", icon: ShieldAlert },
+  { name: "Pipeline", href: "/pipeline", icon: GitFork },
+  { name: "Reports", href: "/reports", icon: FileText },
+];
 
 interface TopNavProps {
   activeTab?: string;
   onSelectTab?: (tab: string) => void;
 }
 
-export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
+export function TopNav({ activeTab, onSelectTab }: TopNavProps) {
+  const pathname = usePathname();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -28,7 +42,6 @@ export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
   }));
 
   useEffect(() => {
-    // Sync with auth
     setCurrentUser({
       username: auth.getUsername(),
       role: auth.getRole(),
@@ -44,8 +57,8 @@ export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
       }
     };
 
-    window.addEventListener('auth-changed', handleAuthChange);
-    return () => window.removeEventListener('auth-changed', handleAuthChange);
+    window.addEventListener("auth-changed", handleAuthChange);
+    return () => window.removeEventListener("auth-changed", handleAuthChange);
   }, []);
 
   // Close profile menu when clicking outside
@@ -58,8 +71,8 @@ export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
         setIsProfileMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleSignOut = () => {
@@ -69,71 +82,78 @@ export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
 
   const getRoleBadgeStyle = (role: string) => {
     switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 'ANALYST':
-        return 'bg-brand-soft text-brand border-brand/30';
+      case "ADMIN":
+        return "bg-rose-50 text-rose-700 border-rose-200";
+      case "ANALYST":
+        return "bg-brand-soft text-brand border-brand/30";
       default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
   const getAvatarBg = (role: string) => {
     switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return 'bg-rose-100 text-rose-700';
-      case 'ANALYST':
-        return 'bg-violet-100 text-violet-700';
+      case "ADMIN":
+        return "bg-rose-100 text-rose-700";
+      case "ANALYST":
+        return "bg-violet-100 text-violet-700";
       default:
-        return 'bg-slate-100 text-slate-700';
+        return "bg-slate-100 text-slate-700";
     }
   };
 
   return (
     <header className="shrink-0 flex items-center justify-between px-2 py-0.5 2xl:py-1">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 2xl:gap-3">
-        <div className="flex h-8 w-8 2xl:h-9 2xl:w-9 items-center justify-center rounded-xl bg-brand text-brand-foreground shadow-sm">
+      <Link href="/dashboard" className="flex items-center gap-2.5 2xl:gap-3 group">
+        <div className="flex h-8 w-8 2xl:h-9 2xl:w-9 items-center justify-center rounded-xl bg-brand text-brand-foreground shadow-sm group-hover:scale-105 transition-transform">
           <Shield className="h-4.5 w-4.5 2xl:h-5 2xl:w-5" strokeWidth={2.25} />
         </div>
-        <span className="text-base 2xl:text-lg font-semibold tracking-tight text-foreground">
-          VertexAI
-        </span>
-        <span className="hidden sm:inline-block rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-          HITL SUPERVISED
-        </span>
-      </div>
+        <div>
+          <span className="text-base 2xl:text-lg font-semibold tracking-tight text-foreground font-mono">
+            VertexAI
+          </span>
+          <span className="hidden sm:inline-block ml-2 rounded bg-slate-100 px-1.5 py-0.2 font-mono text-[9px] font-bold text-slate-600 border border-slate-200">
+            SOC PLATFORM
+          </span>
+        </div>
+      </Link>
 
-      {/* Center nav */}
+      {/* Center Nav Links (Next.js 14 App Router) */}
       <nav className="hidden items-center gap-1 md:flex">
-        {NAV.map((item) => {
-          const active = activeTab === item;
+        {NAV_LINKS.map((link) => {
+          const isActive =
+            pathname === link.href ||
+            (link.href === "/dashboard" && (pathname === "/" || activeTab === "Overview")) ||
+            (link.href === "/findings" && activeTab === "Key Alerts") ||
+            (link.href === "/reports" && activeTab === "Insights") ||
+            (link.href === "/uploads" && activeTab === "Executions");
+          const Icon = link.icon;
+
           return (
-            <button
-              key={item}
-              onClick={() => onSelectTab?.(item)}
-              className={
-                'rounded-lg px-3 2xl:px-4 py-1 2xl:py-1.5 font-mono text-xs 2xl:text-sm transition-all ' +
-                (active
-                  ? 'border border-brand/40 bg-brand-soft font-bold text-brand shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50')
-              }
+            <Link
+              key={link.name}
+              href={link.href}
+              onClick={() => onSelectTab?.(link.name)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-xs 2xl:text-sm transition-all ${
+                isActive
+                  ? "border border-brand/40 bg-brand-soft font-bold text-brand shadow-2xs"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/70"
+              }`}
             >
-              {item}
-            </button>
+              <Icon className="h-3.5 w-3.5" />
+              {link.name}
+            </Link>
           );
         })}
       </nav>
 
-      {/* Right controls */}
+      {/* Right Controls */}
       <div className="flex items-center gap-2.5 2xl:gap-3">
-        <button className="flex items-center gap-1.5 2xl:gap-2 rounded-lg border border-slate-200 bg-white px-2.5 2xl:px-3 py-1 2xl:py-1.5 font-mono text-xs 2xl:text-sm text-slate-600 shadow-sm">
-          <span className="h-1.5 w-1.5 2xl:h-2 2xl:w-2 rounded-full bg-emerald-500" />
-          Backend :8080
-          <span className="text-slate-300">·</span>
-          Production
-          <ChevronDown className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-slate-400" />
-        </button>
+        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-mono text-xs text-slate-600 shadow-xs">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Backend :8080</span>
+        </div>
 
         {/* Notification Button & Popover */}
         <div className="relative">
@@ -160,69 +180,53 @@ export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
             title="User Account & Session"
           >
             <div
-              className={`flex h-6 w-6 2xl:h-7 2xl:w-7 items-center justify-center rounded-lg font-mono text-[11px] font-bold ${getAvatarBg(
+              className={`flex h-7 w-7 2xl:h-8 2xl:w-8 items-center justify-center rounded-lg font-mono text-xs 2xl:text-sm font-bold uppercase transition-colors ${getAvatarBg(
                 currentUser.role
               )}`}
             >
-              {currentUser.username.slice(0, 2).toUpperCase()}
+              {currentUser.username.slice(0, 2)}
             </div>
-            <div className="flex flex-col items-start text-left">
-              <span className="font-mono text-[11px] 2xl:text-xs font-bold text-slate-800 leading-none">
+            <div className="hidden text-left lg:block">
+              <p className="font-mono text-xs font-semibold leading-none text-slate-800 group-hover:text-slate-900">
                 {currentUser.username}
-              </span>
-              <span
-                className={`mt-0.5 rounded px-1 py-0.2 font-mono text-[8px] 2xl:text-[9px] font-bold border ${getRoleBadgeStyle(
-                  currentUser.role
-                )}`}
-              >
+              </p>
+              <p className="mt-0.5 font-mono text-[10px] uppercase leading-none text-slate-400">
                 {currentUser.role}
-              </span>
+              </p>
             </div>
-            <ChevronDown className={`h-3 w-3 text-slate-400 group-hover:text-slate-700 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`h-3 w-3 text-slate-400 group-hover:text-slate-700 transition-transform ${
+                isProfileMenuOpen ? "rotate-180" : ""
+              }`}
+            />
           </button>
 
           {/* Profile Dropdown Popover */}
           {isProfileMenuOpen && (
-            <div className="absolute right-0 top-11 z-50 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-              {/* User Info Header */}
-              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl font-mono text-xs font-bold ${getAvatarBg(
-                    currentUser.role
-                  )}`}
-                >
-                  {currentUser.username.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-mono text-xs font-bold text-slate-900 truncate">
-                    {currentUser.username}
-                  </p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span
-                      className={`rounded px-1.5 py-0.2 font-mono text-[9px] font-bold border ${getRoleBadgeStyle(
-                        currentUser.role
-                      )}`}
-                    >
-                      {currentUser.role}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Active
-                    </span>
-                  </div>
+            <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="border-b border-slate-100 px-3 py-2">
+                <p className="font-mono text-xs font-bold text-slate-900">
+                  {currentUser.username}
+                </p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span
+                    className={`rounded border px-1.5 py-0.2 font-mono text-[10px] font-semibold ${getRoleBadgeStyle(
+                      currentUser.role
+                    )}`}
+                  >
+                    {currentUser.role}
+                  </span>
+                  <span className="font-mono text-[10px] text-slate-400">Active</span>
                 </div>
               </div>
 
-              {/* Sign Out Action */}
-              <div className="mt-2">
+              <div className="py-1">
                 <button
                   onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left font-mono text-xs text-rose-600 hover:bg-rose-50 transition-colors group"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 transition-colors font-mono"
                 >
-                  <LogOut className="h-4 w-4 text-rose-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                  <div className="min-w-0 flex-1">
-                    <span className="font-bold block">Sign Out</span>
-                    <span className="text-[10px] text-rose-400 block">End current session</span>
-                  </div>
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign Out
                 </button>
               </div>
             </div>
@@ -232,6 +236,3 @@ export function TopNav({ activeTab = 'Overview', onSelectTab }: TopNavProps) {
     </header>
   );
 }
-
-
-

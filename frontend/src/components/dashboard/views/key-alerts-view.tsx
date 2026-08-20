@@ -31,7 +31,7 @@ interface KeyAlertsViewProps {
   onOpenHITL?: () => void;
 }
 
-export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
+export function KeyAlertsView({ onOpenHITL: _ }: KeyAlertsViewProps) {
   const [findings, setFindings] = useState<CanonicalFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,6 +40,8 @@ export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
   // Drawer state
   const [selectedFinding, setSelectedFinding] = useState<CanonicalFinding | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Ticket state is no longer tracked here. It comes from each finding's own
+  // ticket_url / has_ticket fields, which the backend derives from risk_tickets.
 
   // Accept risk modal state
   const [riskModalFinding, setRiskModalFinding] = useState<CanonicalFinding | null>(null);
@@ -55,7 +57,7 @@ export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
   const loadFindings = async () => {
     setLoading(true);
     try {
-      const data = await api.getVulnerabilities(undefined, undefined, false);
+      const data = await api.getVulnerabilities(undefined, undefined, undefined, false);
       setFindings(data);
     } catch (err) {
       console.warn('Failed to fetch vulnerabilities', err);
@@ -299,11 +301,10 @@ export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
                     {/* CVSS Estimate */}
                     <td className="py-3 px-3">
                       <span
-                        className={`inline-block font-mono text-xs font-bold rounded px-1.5 py-0.5 ${
-                          Number(approxCvss) >= 9
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
+                        className={`inline-block font-mono text-xs font-bold rounded px-1.5 py-0.5 ${Number(approxCvss) >= 9
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-amber-100 text-amber-800'
+                          }`}
                       >
                         {approxCvss}
                       </span>
@@ -341,9 +342,8 @@ export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
                     <td className="py-3 px-3">
                       <div className="flex flex-col gap-0.5">
                         <span
-                          className={`font-mono text-[11px] font-bold ${
-                            isCrit ? 'text-rose-600' : 'text-amber-600'
-                          }`}
+                          className={`font-mono text-[11px] font-bold ${isCrit ? 'text-rose-600' : 'text-amber-600'
+                            }`}
                         >
                           {item.priority_level || (isCrit ? 'P0_CRITICAL' : 'P1_HIGH')}
                         </span>
@@ -373,7 +373,7 @@ export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onOpenHITL?.();
+                                handleOpenDrawer(item);
                               }}
                               className="rounded-lg bg-brand px-2.5 py-1 font-mono text-[11px] font-semibold text-white hover:bg-brand/90 transition-colors shadow-xs"
                             >
@@ -408,7 +408,21 @@ export function KeyAlertsView({ onOpenHITL }: KeyAlertsViewProps) {
         onAcceptRisk={(_id) => {
           if (selectedFinding) handleOpenRiskModal(selectedFinding);
         }}
-        onOpenHITL={onOpenHITL}
+        onTicketCreated={(findingId, url) => {
+          // Reflect the new ticket on the specific finding only, then re-read from the
+          // backend so ticket_url stays authoritative across reloads.
+          setFindings((prev) =>
+            prev.map((f) =>
+              f.finding_id === findingId ? { ...f, ticket_url: url, has_ticket: true } : f
+            )
+          );
+          setSelectedFinding((prev) =>
+            prev && prev.finding_id === findingId
+              ? { ...prev, ticket_url: url, has_ticket: true }
+              : prev
+          );
+          void loadFindings();
+        }}
       />
 
       {/* Risk Acceptance Justification Modal */}

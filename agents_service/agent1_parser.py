@@ -3,7 +3,23 @@ import xmltodict
 from urllib.parse import urlparse
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+import logging
+
+from agent_schemas import AIAnalysis, ai_analysis_from_result, sections_system_prompt
+
+# Configure logging for diagnostics
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+AGENT1_ROLE = (
+    "You are Agent 1 of a human-supervised vulnerability triage pipeline: Scanner "
+    "Normalization. Deterministic parsers have already converted raw ZAP/Nuclei/OpenVAS/Nmap "
+    "output into a shared UnifiedFinding schema (scanner source, CVE, CVSS, host, port, "
+    "severity). Your job is to review the counts and flags you are given and explain, in "
+    "plain language, what was normalized, which findings have missing or reconciled data "
+    "(e.g. no CVE id, default CVSS), and how confident an analyst should be in this batch."
+)
 
 router = APIRouter(prefix="/api/v1/agent1")
 
@@ -21,8 +37,11 @@ class UnifiedFinding(BaseModel):
     historical_plugin_fp_rate: float = 0.1
 
 class Report(BaseModel):
-    scanner_type: str
+    scanner_type: str = Field(alias="scannerType")
     content: str
+    
+    class Config:
+        populate_by_name = True  # Accept both snake_case and camelCase
 
 class ParseRequest(BaseModel):
     reports: Optional[List[Report]] = None
@@ -30,8 +49,10 @@ class ParseRequest(BaseModel):
     scanners: Optional[List[str]] = None
 
 class ParseResponse(BaseModel):
+    stage_summary: Optional[str] = None
     status: str = "WAITING_FOR_HUMAN"
     findings: List[UnifiedFinding]
+    ai_analysis: Optional[AIAnalysis] = None
 
 def parse_zap(content: str) -> List[UnifiedFinding]:
     """Parse OWASP ZAP JSON reports."""
@@ -236,10 +257,22 @@ def parse_nmap(content: str) -> List[UnifiedFinding]:
 
 @router.post("/parse", response_model=ParseResponse)
 async def parse_reports(request: ParseRequest):
+    logger.info("📥 Agent 1 received parse request")
+    logger.info(f"  ├─ target_host: {request.target_host}")
+    logger.info(f"  ├─ scanners: {request.scanners}")
+    logger.info(f"  └─ reports_count: {len(request.reports) if request.reports else 0}")
+    
+    if request.reports:
+        logger.info(f"📄 First uploaded report:")
+        logger.info(f"  ├─ scanner_type: {request.reports[0].scanner_type}")
+        logger.info(f"  ├─ content_length: {len(request.reports[0].content)} bytes")
+        logger.info(f"  └─ content_preview: {request.reports[0].content[:100]}...")
+    
     all_findings = []
     
     reports = request.reports or []
     if not reports:
+        logger.warning("⚠️  No uploaded reports received - falling back to sample fixtures")
         # Load sample report fixtures from disk for requested scanners or all scanners
         import os
         sample_dir = os.path.join(os.path.dirname(__file__), "sample_reports")
@@ -262,6 +295,8 @@ async def parse_reports(request: ParseRequest):
                 if os.path.exists(fpath):
                     with open(fpath, "r", encoding="utf-8") as f:
                         reports.append(Report(scanner_type=sc, content=f.read()))
+    else:
+        logger.info(f"✅ Processing {len(reports)} uploaded reports (not using samples)")
 
     for report in reports:
         scanner = report.scanner_type.upper()
@@ -274,4 +309,58 @@ async def parse_reports(request: ParseRequest):
         elif "NMAP" in scanner:
             all_findings.extend(parse_nmap(report.content))
             
-    return ParseResponse(status="WAITING_FOR_HUMAN", findings=all_findings)
+    summary = f"Parsed {len(all_findings)} raw findings across {len(reports)} scanner reports. Standardized schemas and mapped baseline CVSS scores."
+
+    scanners_seen = sorted({f.scanner_source for f in all_findings})
+    missing_cve = [f for f in all_findings if f.cve_id == "UNKNOWN"]
+    deterministic_analysis = AIAnalysis(
+        processing_summary=summary,
+        evidence_used=(
+            f"{len(all_findings)} parsed findings from scanners: {', '.join(scanners_seen) or 'none'}."
+        ),
+        tools_and_sources="Deterministic per-scanner parsers (ZAP JSON, Nuclei JSONL, OpenVAS XML, Nmap XML).",
+        decision_rationale="Field mapping and CVSS baselines applied via fixed per-scanner lookup tables.",
+        confidence_and_limitations=(
+            f"{len(missing_cve)} of {len(all_findings)} finding(s) had no CVE identifier and were "
+            "tagged UNKNOWN; downstream agents treat these as lower-confidence."
+            if all_findings
+            else "No findings were parsed from the supplied reports."
+        ),
+    )
+
+    ai_analysis = deterministic_analysis
+    try:
+        from agent_runtime import agentic_enabled, run_agent, wrap_untrusted, NVIDIA_MODEL
+
+        if agentic_enabled() and all_findings:
+            from agent1_tools import build_tools as build_agent1_tools
+
+            sample_titles = "; ".join(
+                wrap_untrusted(f.vulnerability_name, max_chars=80) for f in all_findings[:8]
+            )
+            goal = (
+                f"Batch summary: {len(all_findings)} findings from {len(reports)} report(s) across "
+                f"scanners {scanners_seen}. {len(missing_cve)} finding(s) have no CVE id. "
+                f"Sample finding titles:\n{sample_titles}\n\n"
+                "Investigate this normalization run using your tools before answering: for any "
+                "finding missing a CVE id, call explain_missing_field to understand why its "
+                "scanner left it that way; if a specific finding's CVSS looks suspicious, use "
+                "inspect_finding and lookup_cve_metadata to verify it against the real NVD record. "
+                "Then summarize this normalization run for a human security analyst, grounded in "
+                "what your tool calls actually returned."
+            )
+            result = await run_agent(
+                goal=goal,
+                system_prompt=sections_system_prompt(AGENT1_ROLE),
+                tools=build_agent1_tools(all_findings),
+                expect_json=True,
+            )
+            ai_analysis = ai_analysis_from_result(
+                result, model_name=NVIDIA_MODEL, deterministic=deterministic_analysis
+            )
+    except Exception as exc:
+        logger.warning(f"Agent 1 Nemotron summarization skipped: {exc}")
+
+    return ParseResponse(
+        status="WAITING_FOR_HUMAN", stage_summary=summary, findings=all_findings, ai_analysis=ai_analysis
+    )

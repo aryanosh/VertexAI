@@ -3,12 +3,22 @@ package com.vertexai.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class DashboardResponse {
+
+    /**
+     * The scan these metrics were computed for — echoed back so the frontend can
+     * display "showing results for scan X" and detect a mismatch if it expected a
+     * different run than the one actually resolved (e.g. "no scan_id given, defaulted
+     * to the latest real scan"). Null only when there is no real (non-seed) scan yet.
+     */
+    @JsonProperty("scan_id")
+    private UUID scanId;
 
     @JsonProperty("security_score")
     private Double securityScore;

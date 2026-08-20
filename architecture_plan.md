@@ -274,9 +274,9 @@ CREATE TABLE risk_tickets (
 **XGBoost false-positive features (Agent 2):** `scanner_confidence`, `has_cve_id`, `http_response_code`, `port_is_open`, `historical_plugin_fp_rate`. If `false_positive_prob > 0.85` → `is_suppressed = true`.
 
 **Composite Risk Score formula (Agent 4):**
-`Composite Risk Score = (CVSS × 0.30) + (EPSS × 10 × 0.35) + KEV_Bonus + (Asset_Criticality × 4.0)`
+`Composite Risk Score = (CVSS ÷ 10 × 30) + (EPSS × 35) + KEV_Bonus + (Asset_Criticality ÷ 5 × 20)`
 - `KEV_Bonus` = +25.0 if CISA KEV-listed, else 0.0
-- `Asset_Criticality × 4.0` — up to +20.0 points
+- `Asset_Criticality ÷ 5 × 20` — up to +20.0 points
 
 **SLA / Priority tiers:**
 | Tier | Score Range | SLA |

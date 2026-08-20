@@ -3,9 +3,11 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sentinelai}
-    username: ${DB_USER:sentinelai}
-    password: ${DB_PASSWORD:sentinelai}
+    # Local dev default: PostgreSQL listening on host port 5433.
+    # In Docker, docker-compose overrides DB_HOST=postgres / DB_PORT=5432 (container-internal port).
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:vertexai_db}
+    username: ${DB_USER:vertex_user}
+    password: ${DB_PASSWORD:vertex_secure_pass}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -22,6 +24,10 @@ spring:
       schema-locations: classpath:schema.sql
 
 app:
+  auth:
+    admin-password: ${ADMIN_PASSWORD:admin123}
+    analyst-password: ${ANALYST_PASSWORD:analyst123}
+    viewer-password: ${VIEWER_PASSWORD:viewer123}
   jwt:
     secret: ${JWT_SECRET:vertexai-jwt-secret-key-for-development-only-change-in-production}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
@@ -29,5 +35,5 @@ app:
     base-url: ${PYTHON_AGENT_URL:${AGENTS_SERVICE_URL:http://localhost:8000}}
   github:
     token: ${GITHUB_TOKEN:}
-    repo-owner: ${GITHUB_REPO_OWNER:Iyad777}
-    repo-name: ${GITHUB_REPO_NAME:git_test}
+    repo-owner: ${GITHUB_REPO_OWNER:aryanosh}
+    repo-name: ${GITHUB_REPO_NAME:VertexAI}

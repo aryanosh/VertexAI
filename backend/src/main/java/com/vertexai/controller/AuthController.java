@@ -1,5 +1,6 @@
 package com.vertexai.controller;
 
+import com.vertexai.dto.ChangePasswordRequest;
 import com.vertexai.dto.LoginRequest;
 import com.vertexai.dto.LoginResponse;
 import com.vertexai.service.AuthService;
@@ -9,7 +10,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -26,5 +31,16 @@ public class AuthController {
         log.info("Received login request for user: {}", loginRequest.getUsername());
         LoginResponse response = authService.login(loginRequest);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/change-password")
+    @Operation(summary = "Change Password", description = "Updates password for authenticated user and hashes it with BCrypt.")
+    public ResponseEntity<Map<String, String>> changePassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        String username = userDetails != null ? userDetails.getUsername() : "admin";
+        log.info("Received change-password request for user: {}", username);
+        authService.changePassword(username, request);
+        return ResponseEntity.ok(Map.of("message", "Password successfully updated."));
     }
 }

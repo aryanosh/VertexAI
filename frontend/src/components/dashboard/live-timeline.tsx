@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react"
 import LiveTimelineStream from "@/components/LiveTimelineStream"
 
 export function LiveTimeline() {
@@ -8,10 +7,8 @@ export function LiveTimeline() {
         <h2 className="font-mono text-base 2xl:text-lg font-semibold text-slate-800">
           Live Timeline
         </h2>
-        <button className="flex items-center gap-1 font-mono text-xs font-medium text-brand">
-          View All
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+        {/* A decorative "View All" button used to sit here with no onClick handler.
+            Removed rather than left as a dead control that does nothing when clicked. */}
       </div>
 
       {/* Dynamic WebSocket Event Stream */}

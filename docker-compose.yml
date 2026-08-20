@@ -13,7 +13,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-vertex_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vertex_secure_pass}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -42,6 +42,24 @@ services:
       CISA_KEV_URL: ${CISA_KEV_URL:-https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json}
       FIRST_EPSS_URL: ${FIRST_EPSS_URL:-https://api.first.org/data/v1/epss}
       NVD_API_URL: ${NVD_API_URL:-https://services.nvd.nist.gov/rest/json/cves/2.0}
+      EXPLOITDB_CSV_URL: ${EXPLOITDB_CSV_URL:-https://gitlab.com/exploit-database/exploitdb/-/raw/main/files_exploits.csv}
+      # Agentic reasoning for Agent 3. On by default; falls back automatically to the
+      # deterministic two-call sequence when NVIDIA_API_KEY is unset, or on timeout/error.
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-nvidia/nemotron-3.5-lightning-30b-a3b}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-45}
+      AGENT_MAX_ITERATIONS: ${AGENT_MAX_ITERATIONS:-8}
+      LLM_REQUEST_TIMEOUT: ${LLM_REQUEST_TIMEOUT:-40}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
+      LLM_TOP_P: ${LLM_TOP_P:-0.95}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-1200}
+      LLM_ENABLE_THINKING: ${LLM_ENABLE_THINKING:-false}
+      LLM_REASONING_BUDGET: ${LLM_REASONING_BUDGET:-2048}
+      INTEL_HTTP_TIMEOUT: ${INTEL_HTTP_TIMEOUT:-8}
+      AGENT3_CONCURRENCY: ${AGENT3_CONCURRENCY:-5}
+      AGENT3_MAX_CVES: ${AGENT3_MAX_CVES:-25}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -76,6 +94,9 @@ services:
       AGENTS_SERVICE_URL: http://python-agents:8000
       JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_must_be_at_least_256_bits_long_for_hmac_sha256}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ANALYST_PASSWORD: ${ANALYST_PASSWORD:-analyst123}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:-viewer123}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER:-aryanosh}
       GITHUB_REPO_NAME: ${GITHUB_REPO_NAME:-VertexAI}

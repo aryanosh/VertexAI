@@ -86,18 +86,13 @@ export default function LiveTimelineStream() {
       window.addEventListener('pipeline-event', handleLocalEvent);
     }
 
-    // 3. Spring Boot STOMP WebSocket client
+    // 3. Spring Boot Raw JSON WebSocket client
     let ws: WebSocket | null = null;
     const wsUrl =
-      process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws/pipeline/websocket';
+      process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws/pipeline';
 
     try {
       ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        ws?.send('CONNECT\naccept-version:1.2,1.1,1.0\nheart-beat:10000,10000\n\n\x00');
-        ws?.send('SUBSCRIBE\nid:sub-pipeline\ndestination:/topic/pipeline\n\n\x00');
-      };
 
       ws.onmessage = (event) => {
         try {
@@ -115,11 +110,26 @@ export default function LiveTimelineStream() {
           }
 
           if (jsonPayload) {
-            addTimelineEvent(
-              jsonPayload.status || 'Pipeline Event',
-              jsonPayload.current_stage || jsonPayload.stage,
-              typeof jsonPayload.payload === 'string' ? jsonPayload.payload : jsonPayload.message
-            );
+            const status = jsonPayload.status || 'Pipeline Event';
+            const stage = jsonPayload.current_stage || jsonPayload.stage;
+            const message = typeof jsonPayload.payload === 'string' ? jsonPayload.payload : jsonPayload.message;
+
+            addTimelineEvent(status, stage, message);
+
+            // Propagate event across all dashboard components globally
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('pipeline-event', {
+                  detail: {
+                    status,
+                    stage,
+                    scanId: jsonPayload.scan_id,
+                    message,
+                    summary: typeof jsonPayload.payload === 'string' ? jsonPayload.payload : undefined,
+                  },
+                })
+              );
+            }
           }
         } catch (e) {
           console.warn('[WS] Frame parse error:', e);

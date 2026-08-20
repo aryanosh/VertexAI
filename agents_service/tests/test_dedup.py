@@ -7,6 +7,7 @@ from agent3_threat import enrich_findings, EnrichRequest, CanonicalFinding as Th
 from agent4_scoring import (
     score_and_ticket,
     compute_composite_risk_score,
+    score_components,
     assign_priority_and_sla,
     ScoreRequest,
     EnrichedFinding,
@@ -23,7 +24,7 @@ def test_md5_fingerprint_deduplication():
 
     # Expected exact MD5
     expected_hash = hashlib.md5(
-        f"{target_host}:{target_port}:{cve_id}:{endpoint_path}".encode()
+        f"{target_host}:{target_port}:{cve_id}".encode()
     ).hexdigest()
 
     # Generate 10 duplicate findings across different scanners
@@ -93,38 +94,89 @@ def test_xgboost_false_positive_suppression():
 
 
 def test_composite_risk_score_formula():
-    """Verify exact formula: (CVSS * 0.30) + (EPSS * 10 * 0.35) + KEV_Bonus + (Asset_Criticality * 4.0)"""
-    # Test Case 1: Critical finding on Critical Asset (KEV listed)
-    # CVSS = 9.8 -> 9.8 * 0.30 = 2.94
-    # EPSS = 0.97156 -> 0.97156 * 10 * 0.35 = 3.40046
-    # KEV_Bonus = 25.0
-    # Asset_Criticality = 5 -> 5 * 4.0 = 20.0
-    # Total = 2.94 + 3.40046 + 25.0 + 20.0 = 51.34046
+    """Each dimension contributes its full documented weight out of 100:
+    CVSS 30 | EPSS 25 | CISA KEV +20 | Asset criticality 15 | Exploit availability +10.
+    """
+    # Critical KEV-listed finding, public exploit available, on a criticality-5 production asset.
+    #   CVSS  9.8/10   -> 0.98  * 30 = 29.40
+    #   EPSS  0.97156  -> 0.97156 * 25 = 24.29
+    #   KEV   listed                  = 20.00
+    #   Asset 5/5      -> 1.0   * 15  = 15.00
+    #   Exploit available              = 10.00
+    #   Total = 98.69
     score = compute_composite_risk_score(
-        cvss=9.8, epss=0.97156, is_kev=True, asset_criticality=5
+        cvss=9.8, epss=0.97156, is_kev=True, asset_criticality=5, exploit_available=True
     )
-    assert pytest.approx(score, 0.01) == 51.34
+    assert pytest.approx(score, 0.01) == 98.69
 
-    # Test Case 2: Maximum possible capped at 100.0
-    # CVSS = 10.0, EPSS = 1.0, is_kev = True, Asset_Criticality = 5
-    # (10 * 0.30) + (10 * 0.35) + 25 + 20 = 3 + 3.5 + 25 + 20 = 51.5 (non-capped)
-    score_max = compute_composite_risk_score(
-        cvss=10.0, epss=1.0, is_kev=True, asset_criticality=5
+    # Component breakdown must match the weights exactly.
+    parts = score_components(
+        cvss=9.8, epss=0.97156, is_kev=True, asset_criticality=5, exploit_available=True
     )
-    assert score_max <= 100.0
+    assert pytest.approx(parts["cvss"], 0.01) == 29.40
+    assert pytest.approx(parts["epss"], 0.01) == 24.29
+    assert parts["kev"] == 20.0
+    assert pytest.approx(parts["asset"], 0.01) == 15.00
+    assert parts["exploit"] == 10.0
+
+    # A mid-range finding (no KEV, no exploit evidence) must land between the bands.
+    mid = compute_composite_risk_score(
+        cvss=9.8, epss=0.52, is_kev=False, asset_criticality=5, exploit_available=False
+    )
+    # 29.40 + 13.00 + 0 + 15.00 + 0 = 57.40
+    assert pytest.approx(mid, 0.01) == 57.40
+
+    # Maximum is exactly 100.0 when every dimension is fully satisfied (weights sum to 100).
+    score_max = compute_composite_risk_score(
+        cvss=10.0, epss=1.0, is_kev=True, asset_criticality=5, exploit_available=True
+    )
+    assert score_max == 100.0
+
+
+def test_p0_and_p1_bands_are_reachable():
+    """Regression guard for a scoring bug that made high-severity triage impossible.
+
+    An earlier formula version made P0/P1 unreachable for a real critical CVE. This checks
+    the current five-dimension formula (CVSS 30 | EPSS 25 | KEV 20 | Asset 15 | Exploit 10)
+    and its 90/70/40 priority bands correctly separate critical, serious, and trivial findings.
+    """
+    worst = compute_composite_risk_score(
+        cvss=10.0, epss=1.0, is_kev=True, asset_criticality=5, exploit_available=True
+    )
+    assert assign_priority_and_sla(worst)[0] == "P0_CRITICAL"
+
+    # Log4Shell: CVSS 10.0, actively exploited (KEV), EPSS 0.9716, criticality 5, public exploit code.
+    log4shell = compute_composite_risk_score(
+        cvss=10.0, epss=0.9716, is_kev=True, asset_criticality=5, exploit_available=True
+    )
+    assert log4shell >= 90.0
+    assert assign_priority_and_sla(log4shell)[0] == "P0_CRITICAL"
+
+    # A serious, not-yet-KEV-listed RCE with high exploit probability and public PoC code
+    # should still reach P1_HIGH on the strength of EPSS + criticality + exploit evidence.
+    serious_rce = compute_composite_risk_score(
+        cvss=9.8, epss=0.75, is_kev=False, asset_criticality=5, exploit_available=True
+    )
+    assert assign_priority_and_sla(serious_rce)[0] == "P1_HIGH"
+
+    # A trivial old info leak must still rank low.
+    trivial = compute_composite_risk_score(
+        cvss=2.0, epss=0.001, is_kev=False, asset_criticality=5, exploit_available=False
+    )
+    assert assign_priority_and_sla(trivial)[0] == "P3_LOW"
 
 
 def test_sla_and_priority_tiers():
     """Verify SLA tiers:
-    P0 Critical -> 80.0-100.0 -> 24 Hours
-    P1 High -> 60.0-79.9 -> 72 Hours
-    P2 Medium -> 40.0-59.9 -> 14 Days
+    P0 Critical -> 90.0-100.0 -> 24 Hours
+    P1 High -> 70.0-89.9 -> 72 Hours
+    P2 Medium -> 40.0-69.9 -> 14 Days
     P3 Low -> 0.0-39.9 -> 30 Days
     """
-    p0, _ = assign_priority_and_sla(85.0)
+    p0, _ = assign_priority_and_sla(95.0)
     assert p0 == "P0_CRITICAL"
 
-    p1, _ = assign_priority_and_sla(70.0)
+    p1, _ = assign_priority_and_sla(75.0)
     assert p1 == "P1_HIGH"
 
     p2, _ = assign_priority_and_sla(50.0)

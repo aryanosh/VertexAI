@@ -1,39 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
-import { api } from '@/lib/api';
+import { usePipeline } from '@/lib/pipeline-context';
 
 export function AIInsights() {
-  const [metrics, setMetrics] = useState([
-    { label: 'CISA KEV Exploited', value: '1 Active', text: 'text-rose-600' },
-    { label: 'XGBoost Noise Filtered', value: '94%', text: 'text-emerald-600' },
-    { label: 'Highest EPSS Probability', value: '97.2%', text: 'text-purple-600' },
+  const { dashboardMetrics: data, dashboardDataError } = usePipeline();
+
+  const topVuln = data?.top_threats?.[0];
+  const hasData = data != null;
+  const noisePct = data?.noise_reduction_percent != null ? Math.round(data.noise_reduction_percent) : null;
+  const epssStr = topVuln?.epss_score != null ? `${(topVuln.epss_score * 100).toFixed(1)}%` : null;
+  const kevCount = data?.top_threats?.filter((t) => t.is_cisa_kev).length ?? null;
+
+  const metrics = [
+    { label: 'CISA KEV Exploited', value: kevCount != null ? `${kevCount} Active` : '—', text: 'text-rose-600' },
+    { label: 'XGBoost Noise Filtered', value: noisePct != null ? `${noisePct}%` : '—', text: 'text-emerald-600' },
+    { label: 'Highest EPSS Probability', value: epssStr ?? '—', text: 'text-purple-600' },
     { label: 'HITL Review Gates', value: '4 Enforced', text: 'text-sky-600' },
-  ]);
-
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const data = await api.getDashboardMetrics();
-        const noisePct = Math.round(data.noise_reduction_percent ?? 94);
-        const topVuln = data.top_threats?.[0];
-        const epssStr = topVuln?.epss_score ? `${(topVuln.epss_score * 100).toFixed(1)}%` : '97.2%';
-        const kevCount = data.top_threats?.filter((t) => t.is_cisa_kev).length || 1;
-
-        setMetrics([
-          { label: 'CISA KEV Exploited', value: `${kevCount} Active`, text: 'text-rose-600' },
-          { label: 'XGBoost Noise Filtered', value: `${noisePct}%`, text: 'text-emerald-600' },
-          { label: 'Highest EPSS Probability', value: epssStr, text: 'text-purple-600' },
-          { label: 'HITL Review Gates', value: '4 Enforced', text: 'text-sky-600' },
-        ]);
-      } catch (err) {
-        console.warn('Failed to fetch AI Insights', err);
-      }
-    };
-
-    fetchMetrics();
-  }, []);
+  ];
 
   return (
     <section className="flex h-full min-h-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 2xl:p-3.5 shadow-sm">
@@ -58,7 +42,18 @@ export function AIInsights() {
       <div className="shrink-0 mt-1 flex items-start gap-1.5 rounded-xl bg-purple-50/70 p-2 2xl:p-2.5">
         <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-600" />
         <p className="text-[11px] 2xl:text-xs leading-snug text-slate-600">
-          Agent 4 recommends immediate remediation for <span className="font-mono font-semibold text-purple-700">CVE-2021-44228</span>
+          {dashboardDataError ? (
+            <span className="text-rose-600">Failed to load insights: {dashboardDataError}</span>
+          ) : topVuln ? (
+            <>
+              Agent 4 recommends immediate remediation for{' '}
+              <span className="font-mono font-semibold text-purple-700">{topVuln.cve_id || topVuln.vulnerability_name || 'top finding'}</span>
+            </>
+          ) : hasData ? (
+            'No findings yet requiring remediation for this scan.'
+          ) : (
+            'Awaiting scan data…'
+          )}
         </p>
       </div>
     </section>

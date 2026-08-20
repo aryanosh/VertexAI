@@ -58,4 +58,36 @@ public class CanonicalFindingResponse {
 
     @JsonProperty("explainable_rationale")
     private String explainableRationale;
+
+    // ------------------------------------------------------------------
+    // Per-finding ticket state.
+    //
+    // Without these fields the dashboard had no server-side truth about which
+    // findings already had a GitHub ticket, so it tracked dispatch state in
+    // ephemeral React state. That state bled across findings (dispatching a
+    // ticket for one finding made others render as already dispatched) and was
+    // lost on every page reload. These fields make ticket state authoritative.
+    // ------------------------------------------------------------------
+
+    /**
+     * Live GitHub issue URL for THIS finding, or null when no ticket exists yet.
+     */
+    @JsonProperty("ticket_url")
+    private String ticketUrl;
+
+    /** Ticket lifecycle status (e.g. OPEN), or null when no ticket exists yet. */
+    @JsonProperty("ticket_status")
+    private String ticketStatus;
+
+    /** True only when this specific finding has a dispatched ticket. */
+    @JsonProperty("has_ticket")
+    private Boolean hasTicket;
+
+    /**
+     * Agent 4's ticket-ready draft (title/body/labels/suggested owner/SLA) as raw
+     * JSON, so the frontend can preview the proposed GitHub issue before a human
+     * approves ticket creation. Null until Agent 4 has scored this finding.
+     */
+    @JsonProperty("ticket_payload")
+    private String ticketPayload;
 }

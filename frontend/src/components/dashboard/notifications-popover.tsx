@@ -22,41 +22,11 @@ interface NotificationItem {
   link?: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n1',
-    type: 'critical',
-    title: 'P0 Critical SLA Deadline',
-    message: 'CVE-2021-44228 (Log4Shell) on prod-api-server-01 requires triage within 24h.',
-    time: '5m ago',
-    unread: true,
-  },
-  {
-    id: 'n2',
-    type: 'gate',
-    title: 'Human Review Gate 4 Ready',
-    message: 'Agent 4 calculated Composite Score 94.5. Awaiting human authorization.',
-    time: '18m ago',
-    unread: true,
-  },
-  {
-    id: 'n3',
-    type: 'ticket',
-    title: 'GitHub Ticket Dispatched',
-    message: 'Issue #142 created via GitHubTicketingService for CVE-2021-44228.',
-    time: '1h ago',
-    unread: false,
-    link: 'https://github.com/org/vertexai/issues/142',
-  },
-  {
-    id: 'n4',
-    type: 'info',
-    title: 'Noise Reduction Active',
-    message: 'Agent 2 XGBoost model successfully filtered 94% of duplicate alerts.',
-    time: '2h ago',
-    unread: false,
-  },
-];
+// Deliberately empty: these used to be permanent, hardcoded sample notifications
+// (a specific CVE, a specific composite score, a specific GitHub issue number) shown
+// unconditionally on every load, indistinguishable from real pipeline events. The feed
+// now only ever contains genuine 'pipeline-event' broadcasts received during this session.
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
 
 interface NotificationsPopoverProps {
   isOpen: boolean;
@@ -154,6 +124,11 @@ export function NotificationsPopover({
 
       {/* Notifications List */}
       <div className="my-2 max-h-80 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+        {items.length === 0 && (
+          <p className="py-6 text-center text-xs text-slate-400 font-mono">
+            No alerts yet — events will appear here as the pipeline runs.
+          </p>
+        )}
         {items.map((item) => (
           <div
             key={item.id}

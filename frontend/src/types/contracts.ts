@@ -47,10 +47,18 @@ export interface CanonicalFinding {
   is_accepted_risk: boolean;
   is_cisa_kev: boolean;
   epss_score: number;
+  cvss_base_score?: number;
   composite_risk_score: number;
   priority_level: PriorityLevel | string;
   sla_deadline: string;
   explainable_rationale: string;
+
+  // Per-finding ticket state, authoritative from the backend (risk_tickets table).
+  // Never track dispatch state in component state: it leaks across findings and is
+  // lost on reload.
+  ticket_url?: string | null;
+  ticket_status?: string | null;
+  has_ticket?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,12 +66,35 @@ export interface CanonicalFinding {
 // Matches DashboardResponse DTO in backend
 // ---------------------------------------------------------------------------
 export interface DashboardMetrics {
+  /** The scan these metrics were computed for. Null only when no real scan exists yet. */
+  scan_id?: string | null;
   security_score: number;
   total_findings: number;
   suppressed_findings: number;
   active_findings: number;
   noise_reduction_percent: number;
+  before_noise?: number;
+  after_noise?: number;
   top_threats: CanonicalFinding[];
+}
+
+// ---------------------------------------------------------------------------
+// Agent 2 dedup report — GET /api/scans/{scanId}/dedup-report
+// Covers every raw input finding, including ones merged away as duplicates or
+// suppressed as false positives, not just the surviving canonical findings.
+// ---------------------------------------------------------------------------
+export type DuplicateStatus = 'KEPT' | 'REMOVED_DUPLICATE' | 'REMOVED_FALSE_POSITIVE' | 'ACCEPTED_RISK' | string;
+
+export interface DedupRecord {
+  finding_id: string;
+  cve_id: string | null;
+  scanner_source: string;
+  target_host: string;
+  severity: string;
+  description: string;
+  duplicate_group_id: string;
+  duplicate_status: DuplicateStatus;
+  reason: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +147,44 @@ export interface ScanStatusResponse {
   current_stage?: number;
   agentOutput?: unknown;
   agent_output?: unknown;
+
+  // Real backend-measured per-agent execution times.
+  stage_timings?: StageTiming[];
+  stageTimings?: StageTiming[];
+  total_duration_ms?: number;
+  totalDurationMs?: number;
+  error_message?: string | null;
+  errorMessage?: string | null;
+
+  /**
+   * Provenance of Agent 3 threat intelligence. 'MOCK_FIXTURES' means bundled offline data
+   * was used (USE_MOCKS=true) and the enrichment is NOT live exploit intelligence.
+   */
+  intel_source?: string | null;
+  intelSource?: string | null;
+
+  /**
+   * How Agent 3 reached its conclusions.
+   * 'AGENTIC'        — the model chose which threat-intel tools to call, per CVE.
+   * 'AGENTIC_PARTIAL'— some CVEs fell back to the fixed lookup.
+   * 'DETERMINISTIC'  — the original two-call sequence.
+   */
+  reasoning_mode?: string | null;
+  reasoningMode?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// StageTiming — matches StageTiming DTO in backend
+// Genuine wall-clock measurement of each agent call, so the UI can display
+// processing time instead of simulating it with a client-side timer.
+// ---------------------------------------------------------------------------
+export interface StageTiming {
+  stage: number;
+  agent: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_ms?: number | null;
+  status?: string;
 }
 
 // For legacy references

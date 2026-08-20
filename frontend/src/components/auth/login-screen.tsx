@@ -20,8 +20,8 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
-  const [username, setUsername] = useState('analyst');
-  const [password, setPassword] = useState('analyst123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,37 +37,24 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setError(null);
 
     try {
+      // A session is only ever created from a real 200 response containing a
+      // backend-issued JWT (see auth.login in lib/api.ts) — there is no local
+      // fallback session. A network error or a non-2xx response both surface
+      // as a rejected promise here and must always result in a shown error,
+      // never a silently fabricated session.
       await auth.login(username.trim(), password.trim());
       onLoginSuccess?.();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      // Fallback session if backend is currently unreachable during local testing
-      if (
-        msg.includes('Failed to fetch') ||
-        msg.includes('NetworkError') ||
-        msg.includes('404')
-      ) {
-        console.warn('Backend unavailable, initiating local demo session for:', username);
-        const lower = username.toLowerCase();
-        const inferredRole = lower.includes('admin')
-          ? 'ADMIN'
-          : lower.includes('viewer')
-          ? 'VIEWER'
-          : 'ANALYST';
-        auth.setSession(`mock-jwt-${Date.now()}`, username.trim(), inferredRole);
-        onLoginSuccess?.();
-      } else {
-        setError(msg || 'Invalid username or password. Please verify credentials.');
-      }
+      const isNetworkError = msg.includes('Failed to fetch') || msg.includes('NetworkError');
+      setError(
+        isNetworkError
+          ? 'Unable to reach the authentication server. Please check your connection and try again.'
+          : msg || 'Invalid username or password. Please verify credentials.'
+      );
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillCredentials = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-    setError(null);
   };
 
   return (
@@ -184,44 +171,6 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               )}
             </button>
           </form>
-
-          {/* Role Credentials Reference Hint */}
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 text-xs">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
-              Available Roles & Credentials:
-            </span>
-            <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
-              <button
-                type="button"
-                onClick={() => fillCredentials('admin', 'admin123')}
-                className="flex flex-col items-start p-1.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50/50 transition-colors text-left group"
-                title="Click to fill Admin credentials"
-              >
-                <span className="font-bold text-rose-700">Admin</span>
-                <span className="text-[10px] text-slate-400 group-hover:text-slate-600">admin123</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('analyst', 'analyst123')}
-                className="flex flex-col items-start p-1.5 rounded-lg bg-white border border-slate-200 hover:border-brand/40 hover:bg-brand-soft/30 transition-colors text-left group"
-                title="Click to fill Analyst credentials"
-              >
-                <span className="font-bold text-brand">Analyst</span>
-                <span className="text-[10px] text-slate-400 group-hover:text-slate-600">analyst123</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('viewer', 'viewer123')}
-                className="flex flex-col items-start p-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-100 transition-colors text-left group"
-                title="Click to fill Viewer credentials"
-              >
-                <span className="font-bold text-slate-700">Viewer</span>
-                <span className="text-[10px] text-slate-400 group-hover:text-slate-600">viewer123</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer info */}

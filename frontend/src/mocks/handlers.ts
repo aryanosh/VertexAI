@@ -27,6 +27,32 @@ import type {
 
 const BASE_URL = 'http://localhost:8080';
 
+/** Illustrative per-agent durations for offline demo mode (not real measurements). */
+const MOCK_STAGE_DURATIONS_MS: Record<number, number> = { 1: 1800, 2: 2400, 3: 3100, 4: 1600 };
+
+const MOCK_STAGE_OUTPUT: Record<number, { summary: string; findings: number }> = {
+  1: {
+    summary:
+      'Parsed 2,500 raw records from 4 scanners into UnifiedFinding schema via NVIDIA Nemotron semantic normalization.',
+    findings: 2500,
+  },
+  2: {
+    summary:
+      'Deduplicated via MD5(cve+host+port) fingerprints and XGBoost false-positive filtering. 2,500 → 340 after merge, 15 after FP suppression.',
+    findings: 15,
+  },
+  3: {
+    summary:
+      'Enriched 15 canonical findings against CISA KEV and FIRST EPSS. NVIDIA Nemotron summarized intelligence per CVE.',
+    findings: 15,
+  },
+  4: {
+    summary:
+      'Computed composite risk scores (0–100), assigned P0–P3 priorities and SLA deadlines, drafted ticket narratives via NVIDIA Nemotron.',
+    findings: 15,
+  },
+};
+
 // In-memory state
 let currentDashboard: DashboardMetrics = { ...mockDashboard };
 const currentFindings: CanonicalFinding[] = [...mockFindings];
@@ -147,8 +173,8 @@ export const handlers = [
     }
 
     const ghToken = process.env.NEXT_PUBLIC_GITHUB_TOKEN || '';
-    const owner = process.env.NEXT_PUBLIC_GITHUB_REPO_OWNER || 'Iyad777';
-    const repo = process.env.NEXT_PUBLIC_GITHUB_REPO_NAME || 'git_test';
+    const owner = process.env.NEXT_PUBLIC_GITHUB_REPO_OWNER || 'aryanosh';
+    const repo = process.env.NEXT_PUBLIC_GITHUB_REPO_NAME || 'VertexAI';
 
     let liveIssueUrl = `https://github.com/${owner}/${repo}/issues/1`;
 
@@ -222,21 +248,35 @@ export const handlers = [
     await delay(350);
     const body = (await request.json()) as { assetId?: string; scanners?: string[] };
 
+    const startedAt = new Date().toISOString();
     currentScanState = {
       scanId: `scan-${Date.now()}`,
       scan_id: `scan-${Date.now()}`,
       assetId: body.assetId || registeredAssets[0].assetId,
       status: 'WAITING_FOR_HUMAN',
       scannersUsed: (body.scanners || ['NMAP', 'NUCLEI', 'OWASP_ZAP']).join(', '),
-      startedAt: new Date().toISOString(),
+      startedAt,
       completedAt: null,
       currentStage: 1,
       current_stage: 1,
       agentOutput: {
         stage: 1,
-        message: 'Agent 1 parsed 2,500 raw tool records into UnifiedFindings schema.',
-        findingsCount: 3,
+        stage_summary: MOCK_STAGE_OUTPUT[1].summary,
+        findings_processed: MOCK_STAGE_OUTPUT[1].findings,
       },
+      stage_timings: [
+        {
+          stage: 1,
+          agent: 'Agent 1: Parser & Normalizer',
+          started_at: startedAt,
+          completed_at: new Date(Date.now() + MOCK_STAGE_DURATIONS_MS[1]).toISOString(),
+          duration_ms: MOCK_STAGE_DURATIONS_MS[1],
+          status: 'COMPLETED',
+        },
+      ],
+      total_duration_ms: MOCK_STAGE_DURATIONS_MS[1],
+      intel_source: null,
+      reasoning_mode: null,
     };
 
     return HttpResponse.json(currentScanState, { status: 201 });
@@ -272,6 +312,7 @@ export const handlers = [
     if (body.action === 'CONTINUE') {
       const currentStage = currentScanState?.currentStage ?? currentScanState?.current_stage ?? 1;
       const nextStage = currentStage + 1;
+      const prevTimings = currentScanState?.stage_timings || currentScanState?.stageTimings || [];
 
       if (nextStage > 4) {
         currentScanState = {
@@ -282,6 +323,17 @@ export const handlers = [
           completedAt: new Date().toISOString(),
         };
       } else {
+        const startedAt = new Date().toISOString();
+        const durationMs = MOCK_STAGE_DURATIONS_MS[nextStage] ?? 2000;
+        const output = MOCK_STAGE_OUTPUT[nextStage];
+        const newTiming = {
+          stage: nextStage,
+          agent: `Agent ${nextStage}`,
+          started_at: startedAt,
+          completed_at: new Date(Date.now() + durationMs).toISOString(),
+          duration_ms: durationMs,
+          status: 'COMPLETED',
+        };
         currentScanState = {
           ...currentScanState!,
           status: 'WAITING_FOR_HUMAN',
@@ -289,8 +341,19 @@ export const handlers = [
           current_stage: nextStage,
           agentOutput: {
             stage: nextStage,
-            message: `Stage ${nextStage} complete. Checkpoint waiting for analyst review.`,
+            stage_summary: output?.summary || `Stage ${nextStage} complete. Checkpoint waiting for analyst review.`,
+            findings_processed: output?.findings,
           },
+          stage_timings: [...prevTimings, newTiming],
+          total_duration_ms: [...prevTimings, newTiming].reduce(
+            (sum, t) => sum + (t.duration_ms || 0),
+            0
+          ),
+          // Stage 3 (Threat Intel) is the only agent whose reasoning mode/intel provenance
+          // the UI surfaces — mirrors agents_service defaults (offline mocks, deterministic
+          // fallback unless LLM_ENABLED=true).
+          intel_source: nextStage >= 3 ? 'MOCK_FIXTURES' : currentScanState?.intel_source ?? null,
+          reasoning_mode: nextStage >= 3 ? 'AGENTIC' : currentScanState?.reasoning_mode ?? null,
         };
       }
 

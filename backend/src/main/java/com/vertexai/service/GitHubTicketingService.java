@@ -16,6 +16,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
@@ -34,10 +35,10 @@ public class GitHubTicketingService {
     @Value("${app.github.token:}")
     private String githubToken;
 
-    @Value("${app.github.repo-owner:sentinel-ai-org}")
+    @Value("${app.github.repo-owner:aryanosh}")
     private String repoOwner;
 
-    @Value("${app.github.repo-name:vulnerability-remediation}")
+    @Value("${app.github.repo-name:VertexAI}")
     private String repoName;
 
     public GitHubTicketingService(
@@ -67,33 +68,43 @@ public class GitHubTicketingService {
         CanonicalVulnerability vuln = canonicalVulnerabilityRepository.findById(findingId)
                 .orElseThrow(() -> new ResourceNotFoundException("CanonicalVulnerability", "id", findingId));
 
-        // Check if ticket was already created for this finding
-        if (riskTicketRepository.existsByFinding_FindingId(findingId)) {
-            RiskTicket existing = riskTicketRepository.findByFinding_FindingId(findingId).get();
-            log.info("Ticket already exists for finding {}: {}", findingId, existing.getExternalTicketUrl());
+        // Check if ticket was already created with a live ticket URL
+        RiskTicket existing = riskTicketRepository.findByFinding_FindingId(findingId).orElse(null);
+        if (existing != null && existing.getExternalTicketUrl() != null 
+                && !existing.getExternalTicketUrl().endsWith("/issues/1") 
+                && !existing.getExternalTicketUrl().endsWith("/issues")
+                && !existing.getExternalTicketUrl().endsWith("/pull/1")) {
+            log.info("Valid live ticket already exists for finding {}: {}", findingId, existing.getExternalTicketUrl());
             return mapToTicketResponse(existing);
         }
 
+        // Independently verify a RiskScore exists rather than trusting the caller's
+        // `approved` flag alone — Agent 4 must have actually scored this finding
+        // before any GitHub ticket can be dispatched.
         RiskScore score = riskScoreRepository.findByFinding_FindingId(findingId)
-                .orElse(null);
+                .orElseThrow(() -> {
+                    log.warn("Ticket creation blocked: no RiskScore found for finding {} — Agent 4 has not scored it yet",
+                            findingId);
+                    return new BadRequestException(
+                            "Cannot create ticket: no risk score exists for this finding. "
+                                    + "Complete the risk-scoring stage (Agent 4) and re-approve before dispatching a ticket.");
+                });
 
-        String priority = score != null ? score.getPriorityLevel() : "P2_MEDIUM";
-        double riskScoreVal = score != null ? score.getCompositeRiskScore() : 50.0;
-        String rationale = score != null ? score.getExplainableRationale() : "Automated finding review";
+        String priority = score.getPriorityLevel();
+        double riskScoreVal = score.getCompositeRiskScore();
+        String rationale = score.getExplainableRationale();
         LocalDateTime slaDeadline = calculateSlaDeadline(priority);
 
         // Dispatch GitHub Issue via REST API
         String issueUrl = dispatchGitHubIssue(vuln, priority, riskScoreVal, rationale, slaDeadline);
 
-        // Persist ticket record in risk_tickets table
-        RiskTicket ticket = RiskTicket.builder()
-                .finding(vuln)
-                .ticketSystem("GITHUB")
-                .externalTicketUrl(issueUrl)
-                .assignedOwner("security-response-team@company.com")
-                .slaDeadline(slaDeadline)
-                .status("OPEN")
-                .build();
+        // Persist or update ticket record in risk_tickets table
+        RiskTicket ticket = existing != null ? existing : RiskTicket.builder().finding(vuln).build();
+        ticket.setTicketSystem("GITHUB");
+        ticket.setExternalTicketUrl(issueUrl);
+        ticket.setAssignedOwner("security-response-team@company.com");
+        ticket.setSlaDeadline(slaDeadline);
+        ticket.setStatus("OPEN");
 
         RiskTicket savedTicket = riskTicketRepository.save(ticket);
         log.info("Ticket record saved to database with ID: {} and URL: {}", savedTicket.getTicketId(), issueUrl);
@@ -145,43 +156,62 @@ public class GitHubTicketingService {
                 vuln.getScannerSources(), vuln.getCvssBaseScore(),
                 rationale, vuln.getTargetHost());
 
-        // If GitHub token is configured, call live GitHub REST API
-        if (githubToken != null && !githubToken.isBlank()) {
-            String apiUrl = String.format("https://api.github.com/repos/%s/%s/issues", repoOwner, repoName);
-            log.info("Calling live GitHub REST API at: {}", apiUrl);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(githubToken);
-            headers.set("Accept", "application/vnd.github+json");
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("title", title);
-            payload.put("body", body);
-            payload.put("labels", List.of("security", priority.toLowerCase().replace("_", "-")));
-
-            try {
-                HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
-                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                        apiUrl,
-                        HttpMethod.POST,
-                        request,
-                        new ParameterizedTypeReference<>() {}
-                );
-
-                if (response.getBody() != null && response.getBody().containsKey("html_url")) {
-                    return (String) response.getBody().get("html_url");
-                }
-            } catch (Exception e) {
-                log.warn("GitHub API dispatch failed (falling back to generated issue URL): {}", e.getMessage());
-            }
+        // A GitHub token is required to actually create an issue. Previously, when no
+        // valid token was configured, this method silently returned the repo's generic
+        // issues-list URL (https://github.com/{owner}/{repo}/issues) and the caller stored
+        // it as a successful ticket — which looked like a real issue link in the UI even
+        // though no GitHub API call was ever made and no issue was ever created. Fail loudly
+        // instead, so a missing token is never mistaken for a dispatched ticket.
+        if (githubToken == null || githubToken.isBlank() || githubToken.startsWith("dummy") || githubToken.startsWith("ghp_placeholder")) {
+            log.error("Ticket dispatch blocked: GITHUB_TOKEN is not configured for repository {}/{}", repoOwner, repoName);
+            throw new BadRequestException(
+                    "Cannot create GitHub issue: GITHUB_TOKEN is not configured. Set a valid GitHub personal access " +
+                            "token (with Issues: read-and-write on " + repoOwner + "/" + repoName + ") in the backend environment.");
         }
 
-        // Offline / Simulation fallback URL
-        String fallbackUrl = String.format("https://github.com/%s/%s/issues/%d",
-                repoOwner, repoName, Math.abs(vuln.getFindingId().hashCode() % 1000) + 1);
-        log.info("Generated GitHub Issue URL: {}", fallbackUrl);
-        return fallbackUrl;
+        String apiUrl = String.format("https://api.github.com/repos/%s/%s/issues", repoOwner, repoName);
+        log.info("Calling live GitHub REST API at: {} for repo {}/{}", apiUrl, repoOwner, repoName);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(githubToken);
+        headers.set("Accept", "application/vnd.github+json");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("title", title);
+        payload.put("body", body);
+        payload.put("labels", List.of("security", priority.toLowerCase().replace("_", "-")));
+
+        try {
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    apiUrl,
+                    HttpMethod.POST,
+                    request,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            if (response.getBody() != null && response.getBody().containsKey("html_url")) {
+                String liveUrl = (String) response.getBody().get("html_url");
+                log.info("Live GitHub Issue created successfully: {}", liveUrl);
+                return liveUrl;
+            }
+
+            // GitHub returned 2xx but the response body didn't contain the expected field —
+            // this is not a successful issue creation, so it must not be treated as one.
+            log.error("GitHub API returned an unexpected response body (no html_url): {}", response.getBody());
+            throw new BadRequestException("GitHub API response did not contain an issue URL (html_url). " +
+                    "Response: " + response.getBody());
+        } catch (HttpClientErrorException e) {
+            String errorDetails = e.getResponseBodyAsString();
+            log.error("GitHub API returned error {}: {}", e.getStatusCode(), errorDetails);
+            throw new BadRequestException("GitHub ticket dispatch failed (" + e.getStatusCode() + "): " +
+                    (errorDetails.contains("message") ? errorDetails : e.getMessage()) +
+                    ". Verify GITHUB_TOKEN and access to repository " + repoOwner + "/" + repoName);
+        } catch (Exception e) {
+            log.error("GitHub API communication failure: {}", e.getMessage());
+            throw new BadRequestException("Failed to contact GitHub API: " + e.getMessage());
+        }
     }
 
     private LocalDateTime calculateSlaDeadline(String priority) {

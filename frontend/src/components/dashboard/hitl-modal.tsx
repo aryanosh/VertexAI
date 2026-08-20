@@ -22,12 +22,12 @@ import {
   RefreshCw,
   FileCode2,
   Bug,
-  Globe2,
   Copy,
   Check,
   FileText,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { usePipeline } from '@/lib/pipeline-context';
 import { AddAssetModal } from './add-asset-modal';
 import type {
   Asset,
@@ -50,7 +50,8 @@ const STAGES = [
 ];
 
 export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const { refreshImmediate } = usePipeline();
+  const [_assets, setAssets] = useState<Asset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [selectedScanners, setSelectedScanners] = useState<string[]>([
     'NMAP',
@@ -70,6 +71,8 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
   const [gitHubSyncMessage, setGitHubSyncMessage] = useState<string | null>(null);
   const [gitHubIssueState, setGitHubIssueState] = useState<'OPEN' | 'CLOSED' | null>(null);
   const [vulnerabilities, setVulnerabilities] = useState<CanonicalFinding[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{ file: File; name: string; size: number; status: "Processing" | "Done" | "Failed" }[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Load assets on mount
   useEffect(() => {
@@ -121,14 +124,41 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
     setGitHubSyncMessage(null);
     setGitHubIssueState(null);
     try {
-      const response = await api.startScan(selectedAssetId, selectedScanners);
+      let response: ScanStatusResponse;
+      if (uploadedFiles.length > 0) {
+        setUploadedFiles(prev => prev.map(f => ({ ...f, status: "Processing" })));
+        response = await api.uploadScanReports(
+          selectedAssetId,
+          uploadedFiles.map((f) => f.file),
+          selectedScanners
+        );
+        setUploadedFiles(prev => prev.map(f => ({ ...f, status: "Done" })));
+      } else {
+        response = await api.startScan(selectedAssetId, selectedScanners);
+      }
       setActiveScan(response);
       setDispatchedTicket(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      setUploadedFiles(prev => prev.map(f => ({ ...f, status: "Failed" })));
       alert(`Failed to start scan: ${msg}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Re-fetches this scan's status directly and overwrites local `activeScan` with it.
+  // `handleControl`/`handleApproveTicket` already set local state from the direct API
+  // response, but that response can lag fields the backend only derives asynchronously
+  // (e.g. a WebSocket-broadcast field, or a status flip made by a concurrent actor in
+  // another tab). Without this, local state only catches up on the next 2.5s poll tick,
+  // which read as a stuck "pending" checkpoint right after a human action.
+  const syncFromServer = async (scanId: string) => {
+    try {
+      const fresh = await api.getScanStatus(scanId);
+      setActiveScan(fresh);
+    } catch (err) {
+      console.warn('Post-action status sync failed:', err);
     }
   };
 
@@ -140,6 +170,13 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
     try {
       const updated = await api.submitControlAction(scanId, action);
       setActiveScan(updated);
+      // Push the authoritative state into the app-wide provider immediately, rather than
+      // relying on the 400ms-debounced `pipeline-event` listener, so other mounted views
+      // (e.g. the /pipeline ThreatFlow) never show stale data right after this action.
+      await refreshImmediate();
+      // Converge this modal's own locally-polled state with the server immediately too —
+      // see `syncFromServer` above.
+      await syncFromServer(scanId);
       if (action === 'CONTINUE' && (updated.currentStage === 4 || updated.current_stage === 4)) {
         // Refresh findings to get Agent 4 scored results
         const vulns = await api.getVulnerabilities();
@@ -154,11 +191,26 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
   };
 
   const handleApproveTicket = async (findingId: string) => {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        'This will create a REAL GitHub issue in the configured repository via GitHubTicketingService. This action cannot be undone from this screen. Continue?'
+      )
+    ) {
+      return;
+    }
     setActionLoading(true);
     setGitHubSyncMessage(null);
     setGitHubIssueState(null);
     try {
-      const ticket = await api.createTicket(findingId, true);
+      let targetId = findingId;
+      if (!targetId || targetId === 'sample-id') {
+        const vulns = vulnerabilities.length > 0 ? vulnerabilities : await api.getVulnerabilities();
+        if (vulns.length > 0) {
+          targetId = vulns[0].finding_id;
+        }
+      }
+      const ticket = await api.createTicket(targetId, true);
       setDispatchedTicket(ticket);
       setActiveScan((prev) =>
         prev
@@ -178,11 +230,14 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
           })
         );
       }
+      await refreshImmediate();
+      const scanId = activeScan?.scanId || activeScan?.scan_id;
+      if (scanId) await syncFromServer(scanId);
 
       onScanCompleted?.();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`Ticket creation failed: ${msg}`);
+      alert(`Ticket dispatch error: ${msg}`);
     } finally {
       setActionLoading(false);
     }
@@ -195,8 +250,8 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
 
     const match = dispatchedTicket.ticket_url.match(/issues\/(\d+)/);
     const issueNum = match ? match[1] : '1';
-    const owner = process.env.NEXT_PUBLIC_GITHUB_REPO_OWNER || 'Iyad777';
-    const repo = process.env.NEXT_PUBLIC_GITHUB_REPO_NAME || 'git_test';
+    const owner = process.env.NEXT_PUBLIC_GITHUB_REPO_OWNER || 'aryanosh';
+    const repo = process.env.NEXT_PUBLIC_GITHUB_REPO_NAME || 'VertexAI';
     const token = process.env.NEXT_PUBLIC_GITHUB_TOKEN || '';
 
     try {
@@ -231,6 +286,7 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
               })
             );
           }
+          await refreshImmediate();
 
           onScanCompleted?.();
         } else {
@@ -255,6 +311,11 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
   const isCompleted = activeScan?.status === 'COMPLETED' || Boolean(dispatchedTicket);
   const isWaitingForHuman = activeScan?.status === 'WAITING_FOR_HUMAN' && !isCompleted;
   const isStopped = activeScan?.status === 'STOPPED';
+  // A FAILED pipeline previously matched none of the branches above and silently fell
+  // through to "Agent processing in progress...", which read as a permanently-stuck
+  // checkpoint instead of a surfaced failure.
+  const isFailed = activeScan?.status === 'FAILED' && !isCompleted;
+  const failureDetail = activeScan?.error_message ?? activeScan?.errorMessage ?? null;
   const topFinding = vulnerabilities[0];
 
   return (
@@ -285,55 +346,9 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
-          {/* Target Asset & Scanner Config Section (if no active scan) */}
+          {/* Scanner Config & Report Upload Section (if no active scan) */}
           {!activeScan ? (
             <div className="space-y-5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Globe2 className="h-4 w-4 text-brand" />
-                    <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      1. Select Authorized Target Host
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddAssetOpen(true)}
-                    className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] font-semibold text-slate-700 hover:border-brand hover:text-brand transition-colors"
-                  >
-                    + Add Host
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {assets.map((asset) => {
-                    const id = asset.assetId || asset.asset_id || '';
-                    const isSelected = selectedAssetId === id;
-                    return (
-                      <div
-                        key={id}
-                        onClick={() => setSelectedAssetId(id)}
-                        className={`cursor-pointer rounded-xl border p-3.5 transition-all ${isSelected
-                            ? 'border-brand bg-brand-soft/40 ring-2 ring-brand/20'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-xs font-semibold text-slate-800">
-                            {asset.hostname}
-                          </span>
-                          <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] text-emerald-700">
-                            Criticality {asset.criticalityRating ?? asset.criticality_rating ?? 5}/5
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          IP: {asset.ipAddress || asset.ip_address || '10.0.1.15'} · Env: {asset.environment || 'PRODUCTION'}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Scanners checklist */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
@@ -367,6 +382,117 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
                 </div>
               </div>
 
+              {/* Multi-file report upload dropzone */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-brand" />
+                    <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      3. Attach Scanner Reports (Multi-File Upload)
+                    </h3>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".xml,.json,.jsonl,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const accepted: typeof uploadedFiles = [];
+                        const rejected: string[] = [];
+                        Array.from(e.target.files).forEach((f) => {
+                          const n = f.name.toLowerCase();
+                          if (n.endsWith(".json") || n.endsWith(".xml") || n.endsWith(".jsonl")) {
+                            accepted.push({ file: f, name: f.name, size: f.size, status: "Done" });
+                          } else {
+                            rejected.push(f.name);
+                          }
+                        });
+                        if (rejected.length > 0) {
+                          alert(`Rejected ${rejected.length} file(s) [${rejected.join(", ")}]. Only .json and .xml scanner files are supported.`);
+                        }
+                        if (accepted.length > 0) {
+                          setUploadedFiles((prev) => [...prev, ...accepted]);
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-700 hover:border-brand hover:text-brand transition-colors"
+                  >
+                    + Choose Files (2+)
+                  </button>
+                </div>
+
+                {uploadedFiles.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
+                      <span className="font-mono text-[11px] font-bold text-slate-700">
+                        {uploadedFiles.length} file(s) staged for sandbox analysis:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="font-mono text-[10px] text-brand hover:underline font-semibold"
+                      >
+                        + Add more files
+                      </button>
+                    </div>
+                    {uploadedFiles.map((f, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs"
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileCode2 className="h-3.5 w-3.5 text-brand shrink-0" />
+                          <span className="font-mono truncate text-slate-800 font-medium">{f.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            ({Math.round(f.size / 1024)} KB)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                              f.status === "Done"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : f.status === "Processing"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}
+                          >
+                            {f.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="text-slate-400 hover:text-slate-600"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="cursor-pointer rounded-lg border border-dashed border-slate-300 bg-white/60 p-4 text-center hover:border-brand hover:bg-brand-soft/20 transition-all"
+                  >
+                    <p className="text-xs text-slate-500 font-mono">
+                      Drop 2+ scanner reports here (ZAP, Nuclei, OpenVAS, Nmap) or click to browse
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Accepts .xml, .json, .jsonl formats for concurrent ingestion
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end pt-2">
                 <button
                   onClick={handleStartScan}
@@ -378,7 +504,7 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
                   ) : (
                     <Play className="h-4 w-4 fill-current" />
                   )}
-                  Launch Supervised Scan Pipeline
+                  Upload Files & Launch Supervised Pipeline
                 </button>
               </div>
             </div>
@@ -436,16 +562,20 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
               <div
                 className={`flex items-center justify-between rounded-xl border p-4 ${isWaitingForHuman
                     ? 'border-amber-300 bg-amber-50 text-amber-900'
-                    : isStopped
-                      ? 'border-rose-300 bg-rose-50 text-rose-900'
-                      : isCompleted
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                        : 'border-blue-200 bg-blue-50 text-blue-900'
+                    : isFailed
+                      ? 'border-rose-400 bg-rose-100 text-rose-950'
+                      : isStopped
+                        ? 'border-rose-300 bg-rose-50 text-rose-900'
+                        : isCompleted
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                          : 'border-blue-200 bg-blue-50 text-blue-900'
                   }`}
               >
                 <div className="flex items-center gap-3">
                   {isWaitingForHuman ? (
                     <AlertTriangle className="h-5 w-5 text-amber-600 animate-pulse" />
+                  ) : isFailed ? (
+                    <OctagonAlert className="h-5 w-5 text-rose-700" />
                   ) : isStopped ? (
                     <OctagonAlert className="h-5 w-5 text-rose-600" />
                   ) : isCompleted ? (
@@ -460,11 +590,13 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
                     <p className="text-xs">
                       {isWaitingForHuman
                         ? `Stage ${currentStageNum} complete. Awaiting Human Analyst review.`
-                        : isStopped
-                          ? 'Pipeline halted by Human Analyst. No external GitHub ticket was created.'
-                          : isCompleted
-                            ? 'Pipeline execution complete.'
-                            : 'Agent processing in progress...'}
+                        : isFailed
+                          ? `Pipeline failed at Stage ${currentStageNum}.${failureDetail ? ` ${failureDetail}` : ' Check backend logs for details.'}`
+                          : isStopped
+                            ? 'Pipeline halted by Human Analyst. No external GitHub ticket was created.'
+                            : isCompleted
+                              ? 'Pipeline execution complete.'
+                              : 'Agent processing in progress...'}
                     </p>
                   </div>
                 </div>
@@ -635,7 +767,7 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
                               <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                             </a>
                             <p className="text-[10px] text-slate-500 mt-0.5">
-                              Connected to repository <code className="bg-slate-200 px-1 py-0.5 rounded text-[9px] font-bold">Iyad777/git_test</code>.
+                              Connected to repository <code className="bg-slate-200 px-1 py-0.5 rounded text-[9px] font-bold">aryanosh/VertexAI</code>.
                             </p>
                           </div>
 
@@ -735,7 +867,9 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
               <div className="space-y-2 pb-3 border-b border-slate-800">
                 <div className="flex items-start justify-between gap-3">
                   <h4 className="text-sm font-bold text-white leading-snug">
-                    [P0_CRITICAL] {topFinding?.cve_id || 'CVE-2021-44228'} on {topFinding?.target_host || '10.0.1.15'}:{topFinding?.target_port || 8080}
+                    {topFinding
+                      ? `[${topFinding.priority_level || 'UNSCORED'}] ${topFinding.cve_id || 'No CVE'} on ${topFinding.target_host || 'unknown host'}${topFinding.target_port ? `:${topFinding.target_port}` : ''}`
+                      : 'No finding data available'}
                   </h4>
                   <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -749,7 +883,7 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
                     security
                   </span>
                   <span className="rounded-md bg-rose-950/80 border border-rose-500/30 px-2 py-0.5 text-[10px] text-rose-300 font-semibold">
-                    p0-critical
+                    {(topFinding?.priority_level || 'unscored').toLowerCase().replace('_', '-')}
                   </span>
                   <span className="rounded-md bg-slate-800 border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 font-semibold">
                     vertexai-hitl
@@ -769,38 +903,42 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
 
                 <div className="rounded-lg bg-slate-950/80 border border-slate-800 p-3 space-y-1 text-[11px]">
                   <p>
-                    <span className="text-slate-400">Priority:</span> <span className="font-bold text-rose-400">P0_CRITICAL</span> | <span className="text-slate-400">Risk Score:</span> <span className="font-bold text-brand">94.5 / 100</span>
+                    <span className="text-slate-400">Priority:</span> <span className="font-bold text-rose-400">{topFinding?.priority_level || '—'}</span> | <span className="text-slate-400">Risk Score:</span> <span className="font-bold text-brand">{topFinding?.composite_risk_score != null ? `${topFinding.composite_risk_score} / 100` : '—'}</span>
                   </p>
                   <p>
-                    <span className="text-slate-400">SLA Remediation Deadline:</span> <span className="text-emerald-400 font-semibold">{dispatchedTicket?.sla_deadline || '24 Hours'}</span>
+                    <span className="text-slate-400">SLA Remediation Deadline:</span> <span className="text-emerald-400 font-semibold">{dispatchedTicket?.sla_deadline || topFinding?.sla_deadline || '—'}</span>
                   </p>
                   <p>
-                    <span className="text-slate-400">Assigned Team:</span> <span className="text-slate-200 font-semibold">{dispatchedTicket?.assigned_owner || 'security-response-team@company.com'}</span>
+                    <span className="text-slate-400">Assigned Team:</span> <span className="text-slate-200 font-semibold">{dispatchedTicket?.assigned_owner || 'Unassigned — set on dispatch'}</span>
                   </p>
                 </div>
 
                 <div>
                   <h5 className="font-bold text-slate-200 mb-1.5 uppercase text-[11px] tracking-wider">📌 Vulnerability Summary</h5>
-                  <ul className="space-y-1 text-slate-400 text-[11px]">
-                    <li>• <strong className="text-slate-300">CVE ID:</strong> {topFinding?.cve_id || 'CVE-2021-44228'}</li>
-                    <li>• <strong className="text-slate-300">Vulnerability:</strong> {topFinding?.vulnerability_name || 'Apache Log4j2 JNDI Remote Code Execution'}</li>
-                    <li>• <strong className="text-slate-300">Target Host:</strong> {topFinding?.target_host || '10.0.1.15'}:{topFinding?.target_port || 8080}</li>
-                    <li>• <strong className="text-slate-300">Composite Risk Score:</strong> {topFinding?.composite_risk_score || 94.5} / 100</li>
-                    <li>• <strong className="text-slate-300">Discovered By:</strong> {Array.isArray(topFinding?.scanner_sources) ? topFinding.scanner_sources.join(', ') : (topFinding?.scanner_sources || 'NUCLEI, OWASP_ZAP')}</li>
-                  </ul>
+                  {topFinding ? (
+                    <ul className="space-y-1 text-slate-400 text-[11px]">
+                      <li>• <strong className="text-slate-300">CVE ID:</strong> {topFinding.cve_id || 'No CVE'}</li>
+                      <li>• <strong className="text-slate-300">Vulnerability:</strong> {topFinding.vulnerability_name || 'Unnamed finding'}</li>
+                      <li>• <strong className="text-slate-300">Target Host:</strong> {topFinding.target_host || 'unknown host'}{topFinding.target_port ? `:${topFinding.target_port}` : ''}</li>
+                      <li>• <strong className="text-slate-300">Composite Risk Score:</strong> {topFinding.composite_risk_score != null ? `${topFinding.composite_risk_score} / 100` : 'Not yet scored'}</li>
+                      <li>• <strong className="text-slate-300">Discovered By:</strong> {Array.isArray(topFinding.scanner_sources) ? topFinding.scanner_sources.join(', ') : (topFinding.scanner_sources || 'Unknown scanner')}</li>
+                    </ul>
+                  ) : (
+                    <p className="text-slate-500 text-[11px]">No finding data available.</p>
+                  )}
                 </div>
 
                 <div>
                   <h5 className="font-bold text-slate-200 mb-1.5 uppercase text-[11px] tracking-wider">🧠 AI Explainable Rationale</h5>
                   <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-                    Composite Risk Score 94.5/100 [P0_CRITICAL]. CVSS Base Score 10.0 (3.0 pts). EPSS Score 0.972 (34.0 pts). CISA KEV: Listed in Known Exploited Vulnerabilities (+25.0 pts). Asset Criticality 5/5 (+20.0 pts). Zero noise detected.
+                    {topFinding?.explainable_rationale || 'No rationale available for this finding.'}
                   </p>
                 </div>
 
                 <div>
                   <h5 className="font-bold text-slate-200 mb-1.5 uppercase text-[11px] tracking-wider">🛠️ Required Remediation Action</h5>
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-400">
-                    <li>Inspect target host <code className="text-amber-300">{topFinding?.target_host || '10.0.1.15'}</code> and verify service port configuration.</li>
+                    <li>Inspect target host <code className="text-amber-300">{topFinding?.target_host || 'unknown host'}</code> and verify service port configuration.</li>
                     <li>Apply vendor security patch or upgrade dependencies to safe versions.</li>
                     <li>Mark this ticket resolved and trigger a verification re-scan.</li>
                   </ol>
@@ -813,7 +951,7 @@ export function HITLModal({ isOpen, onClose, onScanCompleted }: HITLModalProps) 
               <button
                 type="button"
                 onClick={() => {
-                  const payload = `## 🛡️ VertexAI Security Remediation Ticket\nPriority: P0_CRITICAL | Risk Score: 94.5/100\nCVE: ${topFinding?.cve_id || 'CVE-2021-44228'}\nHost: ${topFinding?.target_host || '10.0.1.15'}`;
+                  const payload = `## 🛡️ VertexAI Security Remediation Ticket\nPriority: ${topFinding?.priority_level || '—'} | Risk Score: ${topFinding?.composite_risk_score != null ? `${topFinding.composite_risk_score}/100` : '—'}\nCVE: ${topFinding?.cve_id || 'No CVE'}\nHost: ${topFinding?.target_host || 'unknown host'}`;
                   navigator.clipboard.writeText(payload);
                   setCopiedPayload(true);
                   setTimeout(() => setCopiedPayload(false), 2000);
